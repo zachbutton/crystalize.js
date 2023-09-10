@@ -1,0 +1,23 @@
+{
+  "name": "crystalize",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "zachbutton",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zachbutton/crystalize.js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zachbutton/crystalize.js/issues"
+  },
+  "homepage": "https://github.com/zachbutton/crystalize.js#readme",
+  "description": ""
+}
