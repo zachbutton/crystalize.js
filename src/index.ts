@@ -1,86 +1,104 @@
-type CrystalizerCrystal = Map<any, any>;
-type CrystalizerShard = Map<any, any>;
-
-type CrystalizerModeLeaveAll = {
+type ModeLeaveAll = {
 	type: 'all';
 };
 
-type CrystalizerModeLeaveNone = {
+type ModeLeaveNone = {
 	type: 'none';
 };
 
-type CrystalizerModeLeaveCount = {
+type ModeLeaveCount = {
 	type: 'count';
 	count: number;
 };
 
-type CrystalizerModeLeaveUntil = {
+type ModeLeaveUntil = {
 	type: 'until';
-	until: CrystalizerTimeSelector;
+	until: TimeSelector;
 };
 
-type CrystalizerShardSelector = (shard: CrystalizerShard) => boolean;
-type CrystalizerTimeSelector = (ts?: number) => number;
+type ShardSelector<Shard> = (shard: Shard) => boolean;
+type TimeSelector = (ts?: number) => number;
 
-type CrystalizerModeLeaveSelected = {
+type ModeLeaveSelected<Shard> = {
 	type: 'selected';
-	selector: CrystalizerShardSelector;
+	selector: ShardSelector<Shard>;
 };
 
-type CrystalizerMode =
-	| CrystalizerModeLeaveAll
-	| CrystalizerModeLeaveNone
-	| CrystalizerModeLeaveCount
-	| CrystalizerModeLeaveUntil
-	| CrystalizerModeLeaveSelected;
+type Mode<Shard> =
+	| ModeLeaveAll
+	| ModeLeaveNone
+	| ModeLeaveCount
+	| ModeLeaveUntil
+	| ModeLeaveSelected<Shard>;
 
-type CrystalizerOptsRequired = {
-	initial: CrystalizerCrystal;
-	reducer: (
-		acc: CrystalizerCrystal,
-		shard: CrystalizerShard,
-	) => CrystalizerCrystal;
+type OptsRequired<Crystal, Shard> = {
+	initial: Crystal;
+	reducer: (acc: Crystal, shard: Shard) => Crystal;
 };
 
-type CrystalizerOptsOptional = {
-	shards?: Array<CrystalizerShard>;
+type OptsOptional<Shard> = {
+	shards?: Array<Shard>;
 	tsKey?: string;
-	mode?: CrystalizerMode;
+	mode?: Mode<Shard>;
 	ptrFromEnd?: number;
 	throwPtrBounds?: boolean;
 };
 
-type CrystalizerGenerated = {
-	crystal: CrystalizerCrystal;
-	finalCrystal: CrystalizerCrystal;
-	shards: Array<CrystalizerShard>;
+interface Opts<Crystal, Shard>
+	extends OptsRequired<Crystal, Shard>,
+		OptsOptional<Shard> {}
+
+type Generated<Crystal, Shard> = {
+	crystal: Crystal;
+	finalCrystal: Crystal;
+	shards: Array<Shard>;
 };
 
-interface CrystalizerOpts
-	extends CrystalizerOptsRequired,
-		CrystalizerOptsOptional {}
-
-const defaultOptions: CrystalizerOptsOptional = {
-	tsKey: 'ts',
-	mode: { type: 'all' },
-	shards: [],
-	ptrFromEnd: 0,
-	throwPtrBounds: false,
+type Primitive = string | number | boolean | null | undefined;
+type PlainObject = {
+	[key: string]: Primitive | Primitive[] | PlainObject;
 };
 
-export default class Crystalizer {
-	private opts: CrystalizerOpts;
-	private _generated: CrystalizerGenerated;
+/* For now, let's restrict this to PlainObject. Later on, we can support
+ * other types like Maps */
+export default class Crystalizer<
+	Crystal extends PlainObject = PlainObject,
+	Shard extends PlainObject = Crystal,
+> {
+	private opts: Opts<Crystal, Shard>;
+	private _generated: Generated<Crystal, Shard>;
 
-	constructor(opts: CrystalizerOpts) {
+	constructor(opts: Opts<Crystal, Shard>) {
+		const defaultOptions: OptsOptional<Shard> = {
+			tsKey: 'ts',
+			mode: { type: 'all' },
+			shards: [],
+			ptrFromEnd: 0,
+			throwPtrBounds: false,
+		};
+
 		this.opts = { ...defaultOptions, ...opts };
+
+		if (
+			this.opts.shards.some(
+				(shard) => typeof shard[this.opts.tsKey] != 'number',
+			)
+		) {
+			throw new Error(
+				`Every shard must have the key "${this.opts.tsKey}" as a number`,
+			);
+		}
 
 		if (this.opts.throwPtrBounds) {
 			if (
 				this.opts.ptrFromEnd < 0 ||
 				this.opts.ptrFromEnd >= this.opts.shards.length
 			) {
-				throw new RangeError('Crystalizer pointer out of bounds');
+				throw new RangeError(
+					`Crystalizer pointer out of bounds. Expected between 0 and ${
+						this.opts.shards.length - 1
+					}, got ${this.opts.ptrFromEnd}`,
+				);
 			}
 		} else {
 			this.opts.ptrFromEnd = Math.max(
@@ -90,7 +108,7 @@ export default class Crystalizer {
 		}
 	}
 
-	with(shards: CrystalizerShard | Array<CrystalizerShard>): Crystalizer {
+	with(shards: Shard | Array<Shard>): Crystalizer<Crystal, Shard> {
 		shards = shards instanceof Array ? shards : [shards];
 		shards = shards.map((shard) => {
 			/* explicitly allows override of timestamp */
@@ -104,7 +122,7 @@ export default class Crystalizer {
 		});
 	}
 
-	without(selector: CrystalizerShardSelector) {
+	without(selector: ShardSelector<Shard>) {
 		const shards = this.opts.shards.filter((shard) => !selector(shard));
 
 		return new Crystalizer({ ...this.opts, shards });
@@ -120,7 +138,7 @@ export default class Crystalizer {
 		});
 	}
 
-	headFind(seek: (shard: CrystalizerShard) => boolean) {
+	headFind(seek: (shard: Shard) => boolean) {
 		const index = this.opts.shards.findIndex((shard) => seek(shard));
 
 		return new Crystalizer({
@@ -133,16 +151,13 @@ export default class Crystalizer {
 		return new Crystalizer({ ...this.opts, ptrFromEnd: 0 });
 	}
 
-	private reduceInto(
-		shards: Array<CrystalizerShard>,
-		crystal: CrystalizerCrystal,
-	): CrystalizerCrystal {
+	private reduceInto(shards: Array<Shard>, crystal: Crystal): Crystal {
 		return shards.reduce(this.opts.reducer, crystal);
 	}
 
-	private generate(): CrystalizerGenerated {
+	private generate(): Generated<Crystal, Shard> {
 		let shards = [...this.opts.shards].sort((a, b) => {
-			return a[this.opts.tsKey] - b[this.opts.tsKey];
+			return (a[this.opts.tsKey] as number) - (b[this.opts.tsKey] as number);
 		});
 
 		shards = shards.slice(0, shards.length - this.opts.ptrFromEnd);
@@ -157,8 +172,8 @@ export default class Crystalizer {
 					return this.opts.mode.count - 1;
 				case 'until':
 					const until = this.opts.mode.until(+new Date());
-					return shards.findIndex((shard: CrystalizerShard) => {
-						return shard[this.opts.tsKey] >= until;
+					return shards.findIndex((shard: Shard) => {
+						return (shard[this.opts.tsKey] as number) >= until;
 					});
 				case 'selected':
 					const select = this.opts.mode.selector.bind(this.opts.mode);
@@ -175,46 +190,46 @@ export default class Crystalizer {
 		return { crystal, shards, finalCrystal };
 	}
 
-	private get generated(): CrystalizerGenerated {
+	private get generated(): Generated<Crystal, Shard> {
 		if (!this._generated) {
 			this._generated = this.generate();
 		}
 		return this._generated;
 	}
 
-	asCrystal(): CrystalizerCrystal {
+	asCrystal(): Crystal {
 		return structuredClone(this.generated.finalCrystal);
 	}
 
-	get partialShards(): Array<CrystalizerShard> {
+	get partialShards(): Array<Shard> {
 		return structuredClone(this.generated.shards);
 	}
 
-	get partialCrystal(): CrystalizerCrystal {
+	get partialCrystal(): Crystal {
 		return structuredClone(this.generated.crystal);
 	}
 
-	private makeWithMode(mode: CrystalizerMode) {
+	private makeWithMode(mode: Mode<Shard>) {
 		return new Crystalizer({ ...this.opts, mode });
 	}
 
-	leaveAll(): Crystalizer {
+	leaveAll(): Crystalizer<Crystal, Shard> {
 		return this.makeWithMode({ type: 'all' });
 	}
 
-	leaveNone(): Crystalizer {
+	leaveNone(): Crystalizer<Crystal, Shard> {
 		return this.makeWithMode({ type: 'none' });
 	}
 
-	leaveCount(count: number): Crystalizer {
+	leaveCount(count: number): Crystalizer<Crystal, Shard> {
 		return this.makeWithMode({ type: 'count', count });
 	}
 
-	leaveUntil(until: CrystalizerTimeSelector): Crystalizer {
+	leaveUntil(until: TimeSelector): Crystalizer<Crystal, Shard> {
 		return this.makeWithMode({ type: 'until', until });
 	}
 
-	leaveSelected(selector: CrystalizerShardSelector): Crystalizer {
+	leaveSelected(selector: ShardSelector<Shard>): Crystalizer<Crystal, Shard> {
 		return this.makeWithMode({ type: 'selected', selector });
 	}
 }
