@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1694412050375" clover="3.2.0">
+  <project timestamp="1694412050375" name="All files">
+    <metrics statements="53" coveredstatements="53" conditionals="15" coveredconditionals="15" methods="26" coveredmethods="26" elements="94" coveredelements="94" complexity="0" loc="53" ncloc="53" packages="1" files="1" classes="1"/>
+    <file name="index.ts" path="/home/zach/Code/crystalize.js/src/index.ts">
+      <metrics statements="53" coveredstatements="53" conditionals="15" coveredconditionals="15" methods="26" coveredmethods="26"/>
+      <line num="64" count="1" type="stmt"/>
+      <line num="72" count="37" type="stmt"/>
+      <line num="80" count="37" type="stmt"/>
+      <line num="82" count="37" type="cond" truecount="1" falsecount="0"/>
+      <line num="84" count="92" type="stmt"/>
+      <line num="87" count="3" type="stmt"/>
+      <line num="92" count="34" type="cond" truecount="2" falsecount="0"/>
+      <line num="93" count="2" type="cond" truecount="1" falsecount="0"/>
+      <line num="97" count="2" type="stmt"/>
+      <line num="104" count="32" type="stmt"/>
+      <line num="112" count="5" type="cond" truecount="2" falsecount="0"/>
+      <line num="113" count="5" type="stmt"/>
+      <line num="115" count="12" type="stmt"/>
+      <line num="119" count="5" type="stmt"/>
+      <line num="126" count="3" type="stmt"/>
+      <line num="128" count="1" type="stmt"/>
+      <line num="135" count="2" type="stmt"/>
+      <line num="142" count="7" type="stmt"/>
+      <line num="144" count="2" type="cond" truecount="1" falsecount="0"/>
+      <line num="145" count="1" type="stmt"/>
+      <line num="148" count="1" type="stmt"/>
+      <line num="155" count="1" type="stmt"/>
+      <line num="159" count="26" type="stmt"/>
+      <line num="163" count="13" type="stmt"/>
+      <line num="164" count="30" type="stmt"/>
+      <line num="167" count="13" type="stmt"/>
+      <line num="169" count="13" type="stmt"/>
+      <line num="170" count="13" type="cond" truecount="5" falsecount="0"/>
+      <line num="172" count="9" type="stmt"/>
+      <line num="174" count="1" type="stmt"/>
+      <line num="176" count="1" type="stmt"/>
+      <line num="178" count="1" type="stmt"/>
+      <line num="179" count="1" type="stmt"/>
+      <line num="180" count="3" type="stmt"/>
+      <line num="183" count="1" type="stmt"/>
+      <line num="184" count="2" type="stmt"/>
+      <line num="188" count="13" type="stmt"/>
+      <line num="189" count="13" type="stmt"/>
+      <line num="191" count="13" type="stmt"/>
+      <line num="192" count="13" type="stmt"/>
+      <line num="194" count="13" type="stmt"/>
+      <line num="198" count="25" type="cond" truecount="1" falsecount="0"/>
+      <line num="199" count="13" type="stmt"/>
+      <line num="201" count="25" type="stmt"/>
+      <line num="205" count="5" type="stmt"/>
+      <line num="209" count="16" type="stmt"/>
+      <line num="213" count="4" type="stmt"/>
+      <line num="217" count="5" type="stmt"/>
+      <line num="221" count="1" type="stmt"/>
+      <line num="225" count="1" type="stmt"/>
+      <line num="229" count="1" type="stmt"/>
+      <line num="233" count="1" type="stmt"/>
+      <line num="237" count="1" type="stmt"/>
+    </file>
+  </project>
+</coverage>

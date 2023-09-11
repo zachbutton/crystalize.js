@@ -17,7 +17,7 @@ type ModeLeaveUntil = {
 };
 
 type ShardSelector<Shard> = (shard: Shard) => boolean;
-type TimeSelector = (ts?: number) => number;
+type TimeSelector = (ts: number) => number;
 
 type ModeLeaveSelected<Shard> = {
 	type: 'selected';
@@ -61,7 +61,7 @@ type PlainObject = {
 
 /* For now, let's restrict this to PlainObject. Later on, we can support
  * other types like Maps */
-export default class Crystalizer<
+export class Crystalizer<
 	Crystal extends PlainObject = PlainObject,
 	Shard extends PlainObject = Crystal,
 > {
@@ -141,9 +141,13 @@ export default class Crystalizer<
 	headFind(seek: (shard: Shard) => boolean) {
 		const index = this.opts.shards.findIndex((shard) => seek(shard));
 
+		if (index === -1) {
+			return this;
+		}
+
 		return new Crystalizer({
 			...this.opts,
-			ptrFromEnd: this.opts.shards.length - index,
+			ptrFromEnd: this.opts.shards.length - index - 1,
 		});
 	}
 
