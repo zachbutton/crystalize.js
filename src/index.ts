@@ -1,3 +1,5 @@
+import * as Immutable from 'seamless-immutable';
+
 type ModeLeaveAll = {
 	type: 'all';
 };
@@ -42,11 +44,12 @@ type OptsOptional<Shard> = {
 	mode?: Mode<Shard>;
 	ptrFromEnd?: number;
 	throwPtrBounds?: boolean;
+	makeImmutable?: (obj: object) => object;
 };
 
 interface Opts<Crystal, Shard>
 	extends OptsRequired<Crystal, Shard>,
-		OptsOptional<Shard> {}
+	OptsOptional<Shard> { }
 
 type Generated<Crystal, Shard> = {
 	crystal: Crystal;
@@ -75,6 +78,7 @@ export class Crystalizer<
 			shards: [],
 			ptrFromEnd: 0,
 			throwPtrBounds: false,
+			makeImmutable: (obj) => Immutable(obj),
 		};
 
 		this.opts = { ...defaultOptions, ...opts };
@@ -95,8 +99,7 @@ export class Crystalizer<
 				this.opts.ptrFromEnd >= this.opts.shards.length
 			) {
 				throw new RangeError(
-					`Crystalizer pointer out of bounds. Expected between 0 and ${
-						this.opts.shards.length - 1
+					`Crystalizer pointer out of bounds. Expected between 0 and ${this.opts.shards.length - 1
 					}, got ${this.opts.ptrFromEnd}`,
 				);
 			}
@@ -202,15 +205,15 @@ export class Crystalizer<
 	}
 
 	asCrystal(): Crystal {
-		return structuredClone(this.generated.finalCrystal);
+		return this.opts.makeImmutable(this.generated.finalCrystal) as Crystal;
 	}
 
 	get partialShards(): Array<Shard> {
-		return structuredClone(this.generated.shards);
+		return this.opts.makeImmutable(this.generated.shards) as Array<Shard>;
 	}
 
 	get partialCrystal(): Crystal {
-		return structuredClone(this.generated.crystal);
+		return this.opts.makeImmutable(this.generated.crystal) as Crystal;
 	}
 
 	private makeWithMode(mode: Mode<Shard>) {
