@@ -1,10 +1,16 @@
 import { Crystalizer } from './index';
-import * as Immutable from 'seamless-immutable';
 
-const timed = (name, cb) => {
+const t = (name: string, cb: () => any) => {
 	console.time(name);
 	cb();
 	console.timeEnd(name);
+};
+
+const d = (label: string, crystalizer: any) => {
+	console.log('\n\n========', label, '========');
+	console.log('PARTIAL CRYSTAL', crystalizer.partialCrystal);
+	console.log('PARTIAL SHARDS', crystalizer.partialShards);
+	console.log('FULL CRYSTAL', crystalizer.asCrystal());
 };
 
 let crystalizer = new Crystalizer<
@@ -13,56 +19,32 @@ let crystalizer = new Crystalizer<
 >({
 	initial: { total: 0 },
 	reducer: (acc, shard) => ({ total: acc.total + shard.value }),
+	mode: {
+		type: 'keepN',
+		count: 8,
+	},
 });
 
-const stuff = Array(10000)
-	.fill(0)
-	.map((_, i) => ({ value: i, ts: i }));
+let c = (s: number, n: number) =>
+	Array(n)
+		.fill(0)
+		.map((_, i) => ({ value: 1, ts: s + i }));
 
-timed('\ntotal', () => {
-	timed('initial modify', () => {
-		crystalizer = crystalizer.modify((ed) => {
-			stuff.forEach((v) => (ed = ed.with(v)));
-			return ed;
-		});
-	});
+const vals = c(0, 10);
 
-	timed('harden', () => {
-		crystalizer = crystalizer.harden();
-		console.log('len', crystalizer.partialShards.length);
-	});
+console.log('INIT', vals);
 
-	timed('asCrystal', () => {
-		console.log(crystalizer.asCrystal());
-	});
+crystalizer = crystalizer.modify((m) => m.with(vals)).harden();
+d('first', crystalizer);
 
-	timed('\nchange mode', () => {
-		crystalizer = crystalizer.modify((ed) => ed.leaveCount(5000));
-	});
+crystalizer = crystalizer.modify((m) => m.with(c(20, 3))).harden();
+d('new - 3', crystalizer);
 
-	timed('harden', () => {
-		crystalizer = crystalizer.harden();
-		console.log('len', crystalizer.partialShards.length);
-	});
+crystalizer = crystalizer.withHeadAt(-8).harden();
+d('head - 8', crystalizer);
 
-	timed('asCrystal', () => {
-		console.log(crystalizer.asCrystal());
-	});
+crystalizer = crystalizer.withHeadAt(-2).harden();
+d('head - 2', crystalizer);
 
-	timed('\nback 300', () => {
-		crystalizer = crystalizer.modify((ed) => {
-			console.log('mod');
-			return ed.headInc(-4999);
-		});
-	});
-
-	timed('harden', () => {
-		crystalizer = crystalizer.harden();
-		console.log('len', crystalizer.partialShards.length);
-	});
-
-	timed('asCrystal', () => {
-		console.log(crystalizer.asCrystal());
-		console.log(crystalizer.partialCrystal);
-	});
-});
+crystalizer = crystalizer.modify((m) => m.with(c(30, 3))).harden();
+d('new - 2', crystalizer);
