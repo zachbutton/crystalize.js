@@ -106,7 +106,7 @@ In today's web development landscape, we often grapple with the challenge of dup
 
 There are some approaches to dealing with this problem, from GraphQL which helps to decouple them, all the way to HTMX which virtually eliminates frontend state (although, we can consider the DOM itself to be yet another state on it's own). 
 
-Each of these approaches have their use cases. One way we can utilize Crystalize.js is using it canonicalize our backend and frontend state. This is most useful when using We'll still have state in both places, but we won't have to *programatically handle* both states. It's not technically a single source of truth, but it's a *single source of logic*.
+Each of these approaches have their use cases. One way we can utilize Crystalize.js is using it canonicalize our backend and frontend state. We'll still have state in both places, but we won't have to *programatically handle* both states. It's not technically a single source of truth, but it's a *single source of logic*.
 
 This will be some heavy psuedo-code, so get ready.
 
