@@ -57,6 +57,45 @@ For most of this documentation, JS will be used for readability.
 
 Suppose you're making a basic incrementer app in React, like the sort you see in tutorials.Except, you want to spice it up with add an "Undo" feature.
 
-```typescript
+```javascript
+import { Crystalizer } from 'crystalizer.js';
 
+import { useState } from 'react';
+
+const baseIncrementerCrystalizer = new Crystalizer({
+	initial: { count: 0 },
+	reducer: (crystal, shard) => ({ count: crystal.count + shard.count }),
+});
+
+const Incrementer = () => {
+	let [inputCount, setInputCount] = useState(0);
+	let [crystalizer, setCrystalizer] = useState(baseIncrementerCrystalizer);
+
+	const inc = (count) => {
+		setCrystalizer(crystalizer.modify((m) => m.with({ count })));
+	};
+
+	const movePointer = (n) => {
+		setCrystalizer(crystalizer.withHeadInc(n));
+	};
+
+	const currentCount = crystalizer.harden().asCrystal().count;
+
+	return (
+		<div>
+			<span>Count: {currentCount}</span>
+
+			<div>
+				<input
+					onInput={(e) => setInputCount(Number(e.target.value))}
+					placeholder="Count"
+				/>
+				<button onClick={() => inc(inputCount)}>Increment</button>
+			</div>
+
+			<button onClick={() => movePointer(-1)}>Undo</button>
+			<button onClick={() => movePointer(1)}>Redo</button>
+		</div>
+	);
+};
 ```
