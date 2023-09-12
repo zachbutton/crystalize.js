@@ -100,7 +100,7 @@ const Incrementer = () => {
 };
 ```
 
-#### Canonicalize frontend & backend state
+### Canonicalize frontend & backend state
 
 In today's web development landscape, we often grapple with the challenge of duplicated state: once in the backend and then mirrored on the frontend, leading to redundancy and potential synchronization issues.
 
@@ -127,16 +127,22 @@ export const makeCrystalizer = (initial = defaultState) => new Crystalizer({
 // State.js
 
 import { makeCrystalizer } from '../../Common';
-let crystalizer = makeCrystalizer();
 
-export function subscribe(...) { ... }
+let crystalizer;
 
-export function dispatch(action) {
+const initialState = api.get('/state');
+initialState.then(state => {
+    crystalizer = makeCrystalizer(state);
+});
+
+export async function dispatch(action) {
+    await initialState;
+
     // send the plain action to the backend
     api.post('/event', { data: action });
 
     // generate a new crystalizer with the action, and harden it
-    crystalizer = crystalizer.modify(m => m.with(action)).harden()
+    crystalizer = crystalizer.modify(m => m.with(action)).harden();
 
     // emit the new state to subscribers to consume
     subscribers.emit(crystalizer.asCrystal());
@@ -153,11 +159,11 @@ import { makeCrystalizer } from '../../Common';
 function getUserCrystal(userId) {
     const state = getUserState(userId);
 
-    return makeCrystalizer(state).harden().asCrystal();
+    return makeCrystalizer(state);
 }
 
 api.get('/state', (req) => {
-    return getUserCrystal(req.jwt.userId);
+    return getUserCrystal(req.jwt.userId).harden().asCrystal();
 });
 
 api.post('/event', (req) => {
@@ -167,3 +173,82 @@ api.post('/event', (req) => {
     setUserState(req.jwt.userId, newState);
 });
 ```
+
+You might have wondered how, in the backend, we go from `getUserState` straight to constructing a `Crystalizer` intance, which takes an object. This depends on your architecture, and this pattern will work best with non-relational databases such as Mongo, or other databases that are document-driven and allows you to get a simple object.
+
+For relational databases, we lose the *single source of logic* here since you would still have to construct the object passed into the Crystalizer.
+
+But, that brings us to the next use-case:
+
+### Event-driven canonical state
+
+Like before, we're sending single events from the frontend to the backend, and getting the whole state from the backend on load.
+
+However, this time, we're only storing the raw events on the server.
+
+**Common**
+```javascript
+const defaultState = { ... };
+
+export const makeCrystalizer = (initial = defaultState) => new Crystalizer({
+    initial,
+    reducer: (crystal, shard) => {
+        // handle actions here, where it's shared between FE and BE 
+    };
+});
+```
+
+**Frontend**
+```javascript
+// State.js
+
+import { makeCrystalizer } from '../../Common';
+
+let crystalizer;
+
+const initialState = api.get('/state');
+initialState.then(state => {
+    crystalizer = makeCrystalizer(state);
+});
+
+export async function dispatch(action) {
+    await initialState;
+
+    // send the plain action to the backend
+    api.post('/event', { data: action });
+
+    // generate a new crystalizer with the action, and harden it
+    crystalizer = crystalizer.modify(m => m.with(action)).harden();
+
+    // emit the new state to subscribers to consume
+    subscribers.emit(crystalizer.asCrystal());
+}
+```
+
+**Backend**
+```javascript
+// Api.js
+
+import { getAllUserEvents, addUserEvent } from '../your/db/utilities';
+import { makeCrystalizer } from '../../Common';
+
+api.get('/state', (req) => {
+    const events = getAllUserEvents(userId);
+
+    return makeCrystalizer().modify(m => m.with(events)).harden().asCrystal();
+});
+
+api.post('/event', (req) => {
+    addUserEvent(req.jwt.userId, req.body);
+});
+```
+
+Our backend is now quite slim, effectively operating as a simple event store.
+
+Depending on how frequent the events, you may not want to keep them in-perpetuity, but instead, "crystalize" events that are older than a certain age.
+
+That's a great segway into **Advanced Usage**
+
+## Advanced Usage
+
+WIP
