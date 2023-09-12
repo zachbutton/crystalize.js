@@ -55,7 +55,7 @@ For most of this documentation, JS will be used for readability.
 
 ### Application state
 
-Suppose you're making a basic incrementer app in React, like the sort you see in tutorials.Except, you want to spice it up with add an "Undo" feature.
+Suppose you're making a basic incrementer app in React, like the sort you see in tutorials. Except, you want to spice it up with add an "Undo" feature.
 
 ```javascript
 import { Crystalizer } from 'crystalizer.js';
@@ -98,4 +98,72 @@ const Incrementer = () => {
         </div>
     );
 };
+```
+
+#### Canonicalize frontend & backend state
+
+In today's web development landscape, we often grapple with the challenge of duplicated state: once in the backend and then mirrored on the frontend, leading to redundancy and potential synchronization issues.
+
+There are some approaches to dealing with this problem, from GraphQL which helps to decouple them, all the way to HTMX which virtually eliminates frontend state (although, we can consider the DOM itself to be yet another state on it's own). 
+
+Each of these approaches have their use cases. One way we can utilize Crystalize.js is using it canonicalize our backend and frontend state. This is most useful when using We'll still have state in both places, but we won't have to *programatically handle* both states. It's not technically a single source of truth, but it's a *single source of logic*.
+
+This will be some heavy psuedo-code, so get ready.
+
+**Common**
+```javascript
+const defaultState = { ... };
+
+export const makeCrystalizer = (initial = defaultState) => new Crystalizer({
+    initial,
+    reducer: (crystal, shard) => {
+        // handle actions here, where it's shared between FE and BE 
+    };
+});
+```
+
+**Frontend**
+```javascript
+// State.js
+
+import { makeCrystalizer } from '../../Common';
+let crystalizer = makeCrystalizer();
+
+export function subscribe(...) { ... }
+
+export function dispatch(action) {
+    // send the plain action to the backend
+    api.post('/event', { data: action });
+
+    // generate a new crystalizer with the action, and harden it
+    crystalizer = crystalizer.modify(m => m.with(action)).harden()
+
+    // emit the new state to subscribers to consume
+    subscribers.emit(crystalizer.asCrystal());
+}
+```
+
+**Backend**
+```javascript
+// Api.js
+
+import { getUserState, setUserState } from '../your/db/utilities';
+import { makeCrystalizer } from '../../Common';
+
+function getUserCrystal(userId) {
+    const state = getUserState(userId);
+
+    return makeCrystalizer(state).harden().asCrystal();
+}
+
+api.get('/state', (req) => {
+    return getUserCrystal(req.jwt.userId);
+});
+
+api.post('/event', (req) => {
+    const crystal = getUserCrystal(req.jwt.userId);
+    const newState = crystal.modify(m => m.with(req.body)).harden().asCrystal();
+
+    setUserState(req.jwt.userId, newState);
+});
 ```
