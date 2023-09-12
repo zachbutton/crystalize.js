@@ -8,6 +8,7 @@
 	],
 	"scripts": {
 		"test": "jest",
+		"test:watch": "jest --watch",
 		"test:coverage": "npm test -- --coverage",
 		"test:badges": "npm run test:coverage  && jest-coverage-badges",
 		"build": "tsc",

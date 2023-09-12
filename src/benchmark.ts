@@ -8,43 +8,58 @@ const t = (name: string, cb: () => any) => {
 
 const d = (label: string, crystalizer: any) => {
 	console.log('\n\n========', label, '========');
-	console.log('PARTIAL CRYSTAL', crystalizer.partialCrystal);
-	console.log('PARTIAL SHARDS', crystalizer.partialShards);
-	console.log('FULL CRYSTAL', crystalizer.asCrystal());
+	console.log('PARTIAL CRYSTAL', crystalizer.harden().partialCrystal);
+	console.log('PARTIAL SHARDS', crystalizer.harden().partialShards);
+	console.log('FULL CRYSTAL', crystalizer.harden().asCrystal());
 };
 
-let crystalizer = new Crystalizer<
-	{ total: number },
-	{ value: number; ts: number }
->({
+let c = new Crystalizer<{ total: number }, { value: number; ts: number }>({
 	initial: { total: 0 },
 	reducer: (acc, shard) => ({ total: acc.total + shard.value }),
 	mode: {
-		type: 'keepN',
-		count: 8,
+		type: 'keepCount',
+		count: 6,
 	},
 });
 
-let c = (s: number, n: number) =>
-	Array(n)
+const add = (
+	crystalizer: Crystalizer<any>,
+	qty: number,
+	startingId: number = 0,
+) => {
+	const newShards = Array(qty)
 		.fill(0)
-		.map((_, i) => ({ value: 1, ts: s + i }));
+		.map((_, i) => ({ value: 2, id: startingId + i }));
 
-const vals = c(0, 10);
+	return crystalizer.modify((m) => m.with(newShards));
+};
 
-console.log('INIT', vals);
+c = add(c, 10);
+d('first', c);
 
-crystalizer = crystalizer.modify((m) => m.with(vals)).harden();
-d('first', crystalizer);
+c = c.harden();
+c = add(c, 10, 10);
+d('new 10', c);
 
-crystalizer = crystalizer.modify((m) => m.with(c(20, 3))).harden();
-d('new - 3', crystalizer);
+c = c.harden();
 
-crystalizer = crystalizer.withHeadAt(-8).harden();
-d('head - 8', crystalizer);
+c = c.withHeadAt(-1);
+d('head - 1', c);
 
-crystalizer = crystalizer.withHeadAt(-2).harden();
-d('head - 2', crystalizer);
+c = c.withHeadAt(-2);
+d('head - 2', c);
 
-crystalizer = crystalizer.modify((m) => m.with(c(30, 3))).harden();
-d('new - 2', crystalizer);
+c = c.withHeadAt(-4);
+d('head - 4', c);
+
+c = c.withHeadAt(-5);
+d('head - 5', c);
+
+c = c.withHeadAt(-6);
+d('head - 6', c);
+
+c = c.withHeadAt(-7);
+d('head - 7', c);
+
+c = c.withHeadAt(-8);
+d('head - 8', c);

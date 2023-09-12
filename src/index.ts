@@ -7,14 +7,18 @@ type PlainObject = {
 
 type Immutizer = <T>(obj: T) => Readonly<T>;
 
+type ShardSeekFn<Shard> = (shard: Shard) => boolean;
+
 type ModeKeepAll = { type: 'keepAll' };
 type ModeKeepNone = { type: 'keepNone' };
-type ModeKeepN = { type: 'keepN'; count: number };
-type ModeKeepUntil = { type: 'keepUntil'; ts: number };
+type ModeKeepCount = { type: 'keepCount'; count: number };
+type ModeKeepUntil<Shard> = { type: 'keepSeekFirst'; seek: ShardSeekFn<Shard> };
 
-type Mode = ModeKeepAll | ModeKeepNone | ModeKeepN | ModeKeepUntil;
-
-type ShardSeekFn<Shard> = (shard: Shard) => boolean;
+type Mode<Shard> =
+	| ModeKeepAll
+	| ModeKeepNone
+	| ModeKeepCount
+	| ModeKeepUntil<Shard>;
 
 type ModificationWith<Shard> = {
 	type: 'with';
@@ -44,7 +48,7 @@ type Opts<Crystal, Shard> = {
 	initial: Crystal;
 	reducer: (crystal: Crystal, shard: Shard) => Crystal;
 	makeImmutable?: Immutizer;
-	mode?: Mode;
+	mode?: Mode<Shard>;
 	__shards?: Readonly<Shard[]>;
 	__harden?: boolean;
 	__ptrFinder?: PtrFinder<Shard>;
@@ -110,7 +114,7 @@ export class Crystalizer<
 	}
 
 	withHeadTop() {
-		return this.withHeadAt(0);
+		return this.withHeadAt(-0);
 	}
 
 	withHeadInc(inc: number) {
@@ -123,9 +127,8 @@ export class Crystalizer<
 		return this.withHeadAt(-this.opts.__ptrFinder.ptr + inc);
 	}
 
-	withHeadAtTime() {
-		// TODO: Implement as general seek fn
-		return this;
+	withHeadSeek() {
+		throw new Error('Not yet implemented');
 	}
 
 	private getPtrIndex(shards: Readonly<Shard[]>) {
@@ -150,7 +153,6 @@ export class Crystalizer<
 			? [this.generated.crystal, this.generated.shards]
 			: [this.opts.initial, this.opts.__shards];
 
-		const ptr = this.getPtrIndex(shards);
 		const startingOpts: Opts<Crystal, Shard> = {
 			...this.opts,
 			// during modification, remove all dead shards that are beyond the
@@ -226,23 +228,23 @@ export class Crystalizer<
 					return shards.length;
 				case 'keepNone':
 					return 0;
-				case 'keepN':
+				case 'keepCount':
 					return this.opts.mode.count;
-				case 'keepUntil':
-					const ts = this.opts.mode.ts;
-					return shards.length - shards.findIndex((shard) => shard.ts == ts);
+				case 'keepSeekFirst':
+					const seek = this.opts.mode.seek;
+					return shards.length - shards.findIndex((shard) => seek(shard));
 			}
 		})();
 
 		const ptr = this.getPtrIndex(shards);
 
-		const shardsToCrystalizeRangeFromEnd = Math.max(ptr, amountKept);
+		const shardsToCrystalizeRangeFromEnd = amountKept + ptr;
 
 		if (shardsToCrystalizeRangeFromEnd <= shards.length) {
-			const shardsToCrystalize = shards.slice(
-				0,
-				-shardsToCrystalizeRangeFromEnd,
-			);
+			const shardsToCrystalize =
+				shardsToCrystalizeRangeFromEnd == 0
+					? shards
+					: shards.slice(0, -shardsToCrystalizeRangeFromEnd);
 
 			shards = shards.slice(shardsToCrystalize.length);
 			crystal = this.reduceInto(crystal, shardsToCrystalize);

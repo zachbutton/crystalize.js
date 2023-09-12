@@ -1,269 +1,132 @@
 import { Crystalizer } from '../src/index';
 
 describe('Crystalizer', () => {
-	describe('Constructor', () => {
-		it('should throw an error if shard does not contain a ts key', () => {
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					shards: [{ id: 1 }],
-					tsKey: 'timestamp',
-				});
-			}).toThrowError('Every shard must have the key "timestamp" as a number');
+	const add = (
+		crystalizer: Crystalizer<any>,
+		qty: number,
+		startingId: number = 0,
+	) => {
+		const newShards = Array(qty)
+			.fill(0)
+			.map((_, i) => ({ value: 2, id: startingId + i }));
+
+		return crystalizer.modify((m) => m.with(newShards));
+	};
+
+	const setup = (opts: object = {}) => {
+		return new Crystalizer<{ total: number }, { value: number; id: number }>({
+			initial: { total: 0 },
+			reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
+			...opts,
+		});
+	};
+
+	const testBasicAddedShards = (c: Crystalizer, cTot, pLen, pTot) => {
+		it('result correct generated values', () => {
+			expect(c.harden().asCrystal().total).toBe(cTot);
+			expect(c.harden().partialShards.length).toBe(pLen);
+			expect(c.harden().partialCrystal.total).toBe(pTot);
+
+			let startingShards = (c as any).opts.__shards;
+			const ptr = (c as any).opts.__ptrFinder.ptr;
+			startingShards =
+				ptr == 0 ? startingShards : startingShards.slice(0, -ptr);
+			expect(c.harden().partialShards).toEqual(
+				pLen == 0 ? [] : startingShards.slice(-pLen),
+			);
+		});
+	};
+
+	describe('modes', () => {
+		it('defaults to keepAll', () => {
+			expect((setup() as unknown as any).opts.mode.type).toBe('keepAll');
 		});
 
-		it('should only throw out of bounds error when throwPtrBounds is set', () => {
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					ptrFromEnd: -1,
-				});
-			}).not.toThrow();
+		describe('keepAll', () => {
+			const c = add(setup({ mode: { type: 'keepAll' } }), 10);
 
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					throwPtrBounds: true,
-					ptrFromEnd: -1,
-				});
-			}).toThrow();
-
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					shards: [{ ts: 1 }, { ts: 2 }],
-					throwPtrBounds: true,
-					ptrFromEnd: 3,
-				});
-			}).toThrow();
-
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					shards: [{ ts: 1 }, { ts: 2 }],
-					ptrFromEnd: 3,
-				});
-			}).not.toThrow();
+			testBasicAddedShards(c, 20, 10, 0);
 		});
 
-		it('should throw when initialized with shards without timestamps', () => {
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					shards: [{ ts: 1 }, { ts: 2 }],
-					tsKey: 'ts',
-				});
-			}).not.toThrow();
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					shards: [{ ts1: 1 }, { ts1: 2 }],
-					tsKey: 'ts',
-				});
-			}).toThrow();
+		describe('keepNone', () => {
+			const c = add(setup({ mode: { type: 'keepNone' } }), 10);
 
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					shards: [{ ts1: 1 }, { ts1: 2 }],
-					tsKey: 'ts1',
-				});
-			}).not.toThrow();
-			expect(() => {
-				new Crystalizer({
-					initial: {},
-					reducer: (acc) => acc,
-					shards: [{ ts: 1 }, { ts: 2 }],
-					tsKey: 'ts1',
-				});
-			}).toThrow();
+			testBasicAddedShards(c, 20, 0, 20);
+		});
+		describe('keepCount', () => {
+			const c = add(setup({ mode: { type: 'keepCount', count: 5 } }), 10);
+
+			testBasicAddedShards(c, 20, 5, 10);
+		});
+		describe('keepSeekFirst', () => {
+			const seek = (shard: any) => shard.id == 2;
+			const c = add(setup({ mode: { type: 'keepSeekFirst', seek } }), 10);
+
+			testBasicAddedShards(c, 20, 8, 4);
 		});
 	});
 
-	describe('#with', () => {
-		it('should add a single shard', () => {
-			const c = new Crystalizer({
-				initial: {},
-				reducer: (acc) => acc,
-			}).with({ data: 'test' });
-
-			expect(c.partialShards).toHaveLength(1);
+	describe('pointers', () => {
+		it('defaults to absolute 0', () => {
+			expect((setup() as unknown as any).opts.__ptrFinder).toEqual({
+				type: 'absolute',
+				ptr: 0,
+			});
 		});
 
-		it('should add multiple shards', () => {
-			const c = new Crystalizer({
-				initial: {},
-				reducer: (acc) => acc,
-			}).with([{ data: 'test1' }, { data: 'test2' }]);
+		describe('withHeadTop', () => {
+			it('resets it to absolute 0', () => {
+				let c = add(setup(), 10).withHeadAt(-2).withHeadTop();
 
-			expect(c.partialShards).toHaveLength(2);
+				expect((c as unknown as any).opts.__ptrFinder).toEqual({
+					type: 'absolute',
+					ptr: 0,
+				});
+			});
+		});
+
+		describe('withHeadAt', () => {
+			let c = add(setup(), 10).withHeadAt(-2);
+			testBasicAddedShards(c, 16, 8, 0);
+
+			c = c.withHeadAt(-3);
+			testBasicAddedShards(c, 14, 7, 0);
+
+			c = c.withHeadAt(-1);
+			testBasicAddedShards(c, 18, 9, 0);
+		});
+
+		describe('withHeadInc', () => {
+			let c = add(setup(), 10).withHeadInc(-2);
+			testBasicAddedShards(c, 16, 8, 0);
+
+			c = c.withHeadInc(-3);
+			testBasicAddedShards(c, 10, 5, 0);
+
+			c = c.withHeadInc(2);
+			testBasicAddedShards(c, 14, 7, 0);
 		});
 	});
 
-	describe('#without', () => {
-		it('should remove shards based on selector', () => {
-			const c = new Crystalizer<{}, { id: number }>({
-				initial: {},
-				reducer: (acc) => acc,
-			})
-				.with([{ id: 1 }, { id: 2 }, { id: 3 }])
-				.without((shard) => shard.id === 2);
+	describe('combination', () => {
+		describe('withHeadAt', () => {
+			let c = add(setup({ mode: { type: 'keepCount', count: 6 } }), 10);
 
-			const shards = c.partialShards;
-			expect(shards).toHaveLength(2);
-			expect(shards).toEqual(expect.not.arrayContaining([{ id: 2 }]));
+			// cTot, pLen, pTot
+			c = c.withHeadAt(-2);
+			testBasicAddedShards(c, 16, 6, 4);
+
+			c = c.withHeadTop();
+			c = add(c, 10, 10);
+			c = c.harden();
+			c = c.withHeadAt(-8);
+			testBasicAddedShards(c, 24, 6, 12);
+
+			c = c.withHeadAt(-1);
+			testBasicAddedShards(c, 38, 6, 26);
 		});
 	});
 
-	describe('#asCrystal', () => {
-		it('should return a reduced crystal', () => {
-			const c = new Crystalizer<{ count: number }, { value: number }>({
-				initial: { count: 0 },
-				reducer: (acc, shard) => ({ count: acc.count + shard.value }),
-			}).with([{ value: 1 }, { value: 2 }, { value: 3 }]);
-
-			expect(c.asCrystal()).toEqual({ count: 6 });
-		});
-	});
-
-	describe('Mode-related operations', () => {
-		const setup = () => {
-			const currentTime = +new Date();
-			return new Crystalizer({
-				initial: { count: 0 },
-				reducer: (acc, shard) => ({ count: acc.count + shard.value }),
-				shards: [
-					{ ts: currentTime - 30000, value: 1 },
-					{ ts: currentTime - 20000, value: 2 },
-					{ ts: currentTime - 10000, value: 3 },
-					{ ts: currentTime, value: 4 },
-				],
-			});
-		};
-
-		describe('#leaveAll', () => {
-			it('should leave all shards', () => {
-				const c = setup().leaveAll();
-
-				expect(c.partialShards).toHaveLength(4);
-			});
-		});
-
-		describe('#leaveNone', () => {
-			it('should not leave any shards', () => {
-				const c = setup().leaveNone();
-
-				expect(c.partialShards).toHaveLength(0);
-			});
-		});
-
-		describe('#leaveCount', () => {
-			it('should leave a certain number of shards', () => {
-				const c = new Crystalizer<{ count: number }, { value: number }>({
-					initial: { count: 0 },
-					reducer: (acc, shard) => ({ count: acc.count + shard.value }),
-				})
-					.with([{ value: 1 }, { value: 2 }, { value: 3 }])
-					.leaveCount(2);
-
-				expect(c.partialShards).toHaveLength(2);
-			});
-		});
-
-		describe('#leaveUntil', () => {
-			it('should leave shards until a specified time', () => {
-				const currentTime = +new Date();
-				const c = setup().leaveUntil(() => currentTime - 15000);
-				expect(c.partialShards).toHaveLength(2);
-				expect(c.partialShards).toEqual([
-					{ ts: currentTime - 10000, value: 3 },
-					{ ts: currentTime, value: 4 },
-				]);
-			});
-		});
-
-		describe('#leaveSelected', () => {
-			it('should leave shards based on a selector', () => {
-				const c = setup().leaveSelected((shard) => shard.value % 2 === 0);
-
-				expect(c.partialShards).toHaveLength(3);
-				expect(c.partialShards).toEqual([
-					{ ts: expect.any(Number), value: 2 },
-					{ ts: expect.any(Number), value: 3 },
-					{ ts: expect.any(Number), value: 4 },
-				]);
-			});
-		});
-	});
-
-	describe('Head-related operations', () => {
-		const setup = () => {
-			return new Crystalizer({
-				initial: { count: 0 },
-				reducer: (acc, shard) => ({ count: acc.count + shard.value }),
-				shards: [
-					{ id: 1, value: 1, ts: 1 },
-					{ id: 2, value: 2, ts: 2 },
-					{ id: 3, value: 3, ts: 3 },
-					{ id: 4, value: 4, ts: 4 },
-				],
-			});
-		};
-
-		describe('#headInc', () => {
-			it('should increment head by a value', () => {
-				const c = setup().headInc(-1);
-
-				expect(c.partialShards).toHaveLength(3);
-				expect(c.partialShards).toEqual([
-					{ id: 1, value: 1, ts: 1 },
-					{ id: 2, value: 2, ts: 2 },
-					{ id: 3, value: 3, ts: 3 },
-				]);
-				expect(c.partialCrystal).toEqual({ count: 0 });
-				expect(c.asCrystal()).toEqual({ count: 6 });
-			});
-		});
-
-		describe('#headFind', () => {
-			it('should move the head to the shard that matches the condition', () => {
-				const c = setup().headFind((shard) => shard.id === 3);
-
-				expect(c.partialShards).toHaveLength(3);
-				expect(c.partialShards).toEqual([
-					{ id: 1, value: 1, ts: 1 },
-					{ id: 2, value: 2, ts: 2 },
-					{ id: 3, value: 3, ts: 3 },
-				]);
-				expect(c.partialCrystal).toEqual({ count: 0 });
-				expect(c.asCrystal()).toEqual({ count: 6 });
-			});
-
-			it('should not change if the condition does not match any shard', () => {
-				const c = setup().headFind((shard) => shard.id === 10);
-
-				expect(c.partialShards).toHaveLength(4);
-				expect(c.partialCrystal).toEqual({ count: 0 });
-				expect(c.asCrystal()).toEqual({ count: 10 });
-			});
-		});
-
-		describe('#headLast', () => {
-			it('should move the head to the last shard', () => {
-				const c = setup().headInc(-3).headLast();
-
-				expect(c.partialShards).toHaveLength(4);
-				expect(c.partialCrystal).toEqual({ count: 0 });
-				expect(c.asCrystal()).toEqual({ count: 10 });
-			});
-		});
-	});
+	// TODO: Test Modifier.without function
+	// TODO: Test that using the modifier resets ptr to 0
 });
