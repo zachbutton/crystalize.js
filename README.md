@@ -168,9 +168,9 @@ api.get('/state', (req) => {
 
 api.post('/event', (req) => {
     const crystal = getUserCrystal(req.jwt.userId);
-    const newState = crystal.modify(m => m.with(req.body)).harden().asCrystal();
+    const newState = crystal.modify(m => m.with(req.body)).harden();
 
-    setUserState(req.jwt.userId, newState);
+    setUserState(req.jwt.userId, newState.asCrystal());
 });
 ```
 
