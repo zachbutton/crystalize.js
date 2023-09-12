@@ -19,8 +19,8 @@ npm i -D crystalize.js
 import { Crystalizer } from './crystalize.js';
 
 let crystalizer = new Crystalizer({
-	initial: { total: 0 },
-	reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    initial: { total: 0 },
+    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
 });
 
 const newShards = [{ value: 2 }, { value: 7 }, { value: 1 }];
@@ -63,39 +63,39 @@ import { Crystalizer } from 'crystalizer.js';
 import { useState } from 'react';
 
 const baseIncrementerCrystalizer = new Crystalizer({
-	initial: { count: 0 },
-	reducer: (crystal, shard) => ({ count: crystal.count + shard.count }),
+    initial: { count: 0 },
+    reducer: (crystal, shard) => ({ count: crystal.count + shard.count }),
 });
 
 const Incrementer = () => {
-	let [inputCount, setInputCount] = useState(0);
-	let [crystalizer, setCrystalizer] = useState(baseIncrementerCrystalizer);
+    let [inputCount, setInputCount] = useState(0);
+    let [crystalizer, setCrystalizer] = useState(baseIncrementerCrystalizer);
 
-	const inc = (count) => {
-		setCrystalizer(crystalizer.modify((m) => m.with({ count })));
-	};
+    const inc = (count) => {
+        setCrystalizer(crystalizer.modify((m) => m.with({ count })));
+    };
 
-	const movePointer = (n) => {
-		setCrystalizer(crystalizer.withHeadInc(n));
-	};
+    const movePointer = (n) => {
+        setCrystalizer(crystalizer.withHeadInc(n));
+    };
 
-	const currentCount = crystalizer.harden().asCrystal().count;
+    const currentCount = crystalizer.harden().asCrystal().count;
 
-	return (
-		<div>
-			<span>Count: {currentCount}</span>
+    return (
+        <div>
+            <span>Count: {currentCount}</span>
 
-			<div>
-				<input
-					onInput={(e) => setInputCount(Number(e.target.value))}
-					placeholder="Count"
-				/>
-				<button onClick={() => inc(inputCount)}>Increment</button>
-			</div>
+            <div>
+                <input
+                    onInput={(e) => setInputCount(Number(e.target.value))}
+                    placeholder="Count"
+                />
+                <button onClick={() => inc(inputCount)}>Increment</button>
+            </div>
 
-			<button onClick={() => movePointer(-1)}>Undo</button>
-			<button onClick={() => movePointer(1)}>Redo</button>
-		</div>
-	);
+            <button onClick={() => movePointer(-1)}>Undo</button>
+            <button onClick={() => movePointer(1)}>Redo</button>
+        </div>
+    );
 };
 ```
