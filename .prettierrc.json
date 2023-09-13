@@ -1,4 +1,4 @@
 {
-	"useTabs": true,
-	"singleQuote": true
+    "tabWidth": 4,
+    "singleQuote": true
 }

@@ -17,20 +17,20 @@ The Crystalizer.js library introduces a structured methodology for data manageme
 
 <!-- toc -->
 
-- [Installation](#installation)
-- [Basic usage](#basic-usage)
-  - [Initialize](#initialize)
-  - [Options](#options)
-  - [Modify](#modify)
-  - [Harden](#harden)
-  - [Get the data](#get-the-data)
-  - [Putting it all together](#putting-it-all-together)
-  * [Typescript](#typescript)
-- [Advanced Usage](#advanced-usage)
-- [Examples](#examples)
-  - [Application state](#application-state)
-  - [Canonicalize frontend & backend state](#canonicalize-frontend--backend-state)
-  - [Event-driven canonical state](#event-driven-canonical-state)
+-   [Installation](#installation)
+-   [Basic usage](#basic-usage)
+    -   [Initialize](#initialize)
+    -   [Options](#options)
+    -   [Modify](#modify)
+    -   [Harden](#harden)
+    -   [Get the data](#get-the-data)
+    -   [Putting it all together](#putting-it-all-together)
+    *   [Typescript](#typescript)
+-   [Advanced Usage](#advanced-usage)
+-   [Examples](#examples)
+    -   [Application state](#application-state)
+    -   [Canonicalize frontend & backend state](#canonicalize-frontend--backend-state)
+    -   [Event-driven canonical state](#event-driven-canonical-state)
 
 <!-- tocstop -->
 
@@ -48,7 +48,7 @@ npm i -D crystalize.js
 import { Crystalizer } from './crystalize.js';
 
 let crystalizer = new Crystalizer({
-	// options
+    // options
 });
 ```
 
@@ -58,8 +58,8 @@ For now, we'll just explain the required options: `initial` and `reducer`. For t
 
 ```javascript
 new Crystalizer({
-	initial: { total: 0 },
-	reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    initial: { total: 0 },
+    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
 });
 ```
 
@@ -84,11 +84,11 @@ crystalizer = crystalizer
 
 Above, we defined the following changes:
 
-- Add a shard with value 2
-- Add a shard with value 10
-- Add a shard with value 7
-- Add a shard with value 1
-- Remove shards with value 10
+-   Add a shard with value 2
+-   Add a shard with value 10
+-   Add a shard with value 7
+-   Add a shard with value 1
+-   Remove shards with value 10
 
 However, these transformations have not taken place yet. We have a new crystalizer which is prepared to commit those changes. But, the new crystal will not be generated until we harden the crystalizer.
 
@@ -201,40 +201,40 @@ import { Crystalizer } from 'crystalizer.js';
 import { useState } from 'react';
 
 const baseIncrementerCrystalizer = new Crystalizer({
-	initial: { count: 0 },
-	reducer: (crystal, shard) => ({ count: crystal.count + shard.count }),
+    initial: { count: 0 },
+    reducer: (crystal, shard) => ({ count: crystal.count + shard.count }),
 });
 
 const Incrementer = () => {
-	let [inputCount, setInputCount] = useState(0);
-	let [crystalizer, setCrystalizer] = useState(baseIncrementerCrystalizer);
+    let [inputCount, setInputCount] = useState(0);
+    let [crystalizer, setCrystalizer] = useState(baseIncrementerCrystalizer);
 
-	const inc = (count) => {
-		setCrystalizer(crystalizer.modify((m) => m.with({ count })));
-	};
+    const inc = (count) => {
+        setCrystalizer(crystalizer.modify((m) => m.with({ count })));
+    };
 
-	const movePointer = (n) => {
-		setCrystalizer(crystalizer.withHeadInc(n));
-	};
+    const movePointer = (n) => {
+        setCrystalizer(crystalizer.withHeadInc(n));
+    };
 
-	const currentCount = crystalizer.harden().asCrystal().count;
+    const currentCount = crystalizer.harden().asCrystal().count;
 
-	return (
-		<div>
-			<span>Count: {currentCount}</span>
+    return (
+        <div>
+            <span>Count: {currentCount}</span>
 
-			<div>
-				<input
-					onInput={(e) => setInputCount(Number(e.target.value))}
-					placeholder="Count"
-				/>
-				<button onClick={() => inc(inputCount)}>Increment</button>
-			</div>
+            <div>
+                <input
+                    onInput={(e) => setInputCount(Number(e.target.value))}
+                    placeholder="Count"
+                />
+                <button onClick={() => inc(inputCount)}>Increment</button>
+            </div>
 
-			<button onClick={() => movePointer(-1)}>Undo</button>
-			<button onClick={() => movePointer(1)}>Redo</button>
-		</div>
-	);
+            <button onClick={() => movePointer(-1)}>Undo</button>
+            <button onClick={() => movePointer(1)}>Redo</button>
+        </div>
+    );
 };
 ```
 
@@ -272,20 +272,20 @@ let crystalizer;
 
 const initialState = api.get('/state');
 initialState.then((state) => {
-	crystalizer = makeCrystalizer(state);
+    crystalizer = makeCrystalizer(state);
 });
 
 export async function dispatch(action) {
-	await initialState;
+    await initialState;
 
-	// send the plain action to the backend
-	api.post('/event', { data: action });
+    // send the plain action to the backend
+    api.post('/event', { data: action });
 
-	// generate a new crystalizer with the action, and harden it
-	crystalizer = crystalizer.modify((m) => m.with(action)).harden();
+    // generate a new crystalizer with the action, and harden it
+    crystalizer = crystalizer.modify((m) => m.with(action)).harden();
 
-	// emit the new state to subscribers to consume
-	subscribers.emit(crystalizer.asCrystal());
+    // emit the new state to subscribers to consume
+    subscribers.emit(crystalizer.asCrystal());
 }
 ```
 
@@ -298,20 +298,20 @@ import { getUserState, setUserState } from '../your/db/utilities';
 import { makeCrystalizer } from '../../Common';
 
 function getUserCrystal(userId) {
-	const state = getUserState(userId);
+    const state = getUserState(userId);
 
-	return makeCrystalizer(state);
+    return makeCrystalizer(state);
 }
 
 api.get('/state', (req) => {
-	return getUserCrystal(req.jwt.userId).harden().asCrystal();
+    return getUserCrystal(req.jwt.userId).harden().asCrystal();
 });
 
 api.post('/event', (req) => {
-	const crystal = getUserCrystal(req.jwt.userId);
-	const newState = crystal.modify((m) => m.with(req.body)).harden();
+    const crystal = getUserCrystal(req.jwt.userId);
+    const newState = crystal.modify((m) => m.with(req.body)).harden();
 
-	setUserState(req.jwt.userId, newState.asCrystal());
+    setUserState(req.jwt.userId, newState.asCrystal());
 });
 ```
 
@@ -351,20 +351,20 @@ let crystalizer;
 
 const initialState = api.get('/state');
 initialState.then((state) => {
-	crystalizer = makeCrystalizer(state);
+    crystalizer = makeCrystalizer(state);
 });
 
 export async function dispatch(action) {
-	await initialState;
+    await initialState;
 
-	// send the plain action to the backend
-	api.post('/event', { data: action });
+    // send the plain action to the backend
+    api.post('/event', { data: action });
 
-	// generate a new crystalizer with the action, and harden it
-	crystalizer = crystalizer.modify((m) => m.with(action)).harden();
+    // generate a new crystalizer with the action, and harden it
+    crystalizer = crystalizer.modify((m) => m.with(action)).harden();
 
-	// emit the new state to subscribers to consume
-	subscribers.emit(crystalizer.asCrystal());
+    // emit the new state to subscribers to consume
+    subscribers.emit(crystalizer.asCrystal());
 }
 ```
 
@@ -377,16 +377,16 @@ import { getAllUserEvents, addUserEvent } from '../your/db/utilities';
 import { makeCrystalizer } from '../../Common';
 
 api.get('/state', (req) => {
-	const events = getAllUserEvents(userId);
+    const events = getAllUserEvents(userId);
 
-	return makeCrystalizer()
-		.modify((m) => m.with(events))
-		.harden()
-		.asCrystal();
+    return makeCrystalizer()
+        .modify((m) => m.with(events))
+        .harden()
+        .asCrystal();
 });
 
 api.post('/event', (req) => {
-	addUserEvent(req.jwt.userId, req.body);
+    addUserEvent(req.jwt.userId, req.body);
 });
 ```
 
