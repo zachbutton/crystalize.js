@@ -13,6 +13,8 @@
 
 The Crystalizer.js library introduces a structured methodology for data management and transformations based on the concepts of "Crystals" and "Shards". In this library, a "Crystal" is an immutable representation of accumulated data or state, formed over time. Conversely, "Shards" are the individual units or operations that contribute to this accumulation. This design provides an analogy to a crystallization process where individual elements come together to form a solid structure. Example use cases include managing application states, data sequencing, dataset manipulation, time-series data analysis, event sourcing, state tracking in simulations, and modularized data transformations.
 
+## Table of contents
+
 <!-- toc -->
 
 - [Installation](#installation)
@@ -106,11 +108,11 @@ console.log(crystalizer.partialCrystal); // { total: 0 }
 console.log(crystalizer.asCrystal()); // { total: 10 }
 ```
 
-We now not only have access to the final result of the reducer, via `asCrystal()`, but also to the shards we added before. This is useful, because it allows us to keep these for data auditing or reversing or stepping through event history (think undo/redo behavior), just to name a couple use-cases.
+We now not only have access to the final result of the reducer, via `asCrystal()`, but also to the shards we added before. This is useful, because it allows us to keep these for data auditing or stepping through event history (think undo/redo behavior), just to name a couple use-cases.
 
 You'll also notice that `.partialCrystal` has the initial state we started with. It's not always the initial state. It's not even just the previous state; You could call `.harden()` as many times as you want to, and it would still be `{ total: 0 }`.
 
-Instead, let's look at it from a different perspective. Instead of looking at the result from `.asCrystal()` first, let's take a closer look at the partial crystal and partial shards and then work our way back to `.asCrystal()`.
+That might be a little bit confusing if we start from `.asCrystal()` and try to understand from there. Instead, let's look at it from a different perspective. Instead of looking at the result from `.asCrystal()` first, let's take a closer look at the partial crystal and partial shards and then work our way back to `.asCrystal()`.
 
 Based on configurable behavior, `.partialCrystal` contains all of the data (shards) that were collapsed into the crystal (therefore lost).
 
@@ -155,8 +157,6 @@ console.log(crystalizer.partialShards); // [{ value: 2 }, { value: 7 }, { value:
 console.log(crystalizer.partialCrystal); // { total: 0 }
 console.log(crystalizer.asCrystal()); // { total: 10 }
 ```
-
-This should start to resemble other forms of state management that you've seen. Though, you'll notice that while you have the final, calculated shard (or state), the shards that were passed in are still accessible. Keep reading, this gets interesting!
 
 ### Typescript
 
