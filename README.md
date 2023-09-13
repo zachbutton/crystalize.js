@@ -149,7 +149,7 @@ crystalizer = crystalizer
     .modify(m => {
         m.with({ value: 10 }).with({ value: 7 })
     })
-    .modify(m => m.with({ value: 1}).without(s => s.value == 10));
+.modify(m => m.with({ value: 1}).without(s => s.value == 10));
 
 crystalizer = crystalizer.harden();
 
