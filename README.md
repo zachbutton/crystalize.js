@@ -140,8 +140,8 @@ Here's what we did above all in one place, for easy reference:
 import { Crystalizer } from 'crystalize.js';
 
 let crystalizer = new Crystalizer({
-	initial: { total: 0 },
-	reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    initial: { total: 0 },
+    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
 });
 
 crystalizer = crystalizer
