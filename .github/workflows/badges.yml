@@ -1,0 +1,16 @@
+name: Badges
+on: [push]
+jobs:
+    bump:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out repository code
+              uses: actions/checkout@v3
+            - name: Deps
+              run: npm ci
+            - name: Tests
+              run: npm run test:coverage
+            - name: Generating coverage badges
+              uses: jpb06/jest-badges-action@latest
+              with:
+                  branches: main,rewrite/draft-2

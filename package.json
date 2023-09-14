@@ -42,20 +42,5 @@
     },
     "lint-staged": {
         "*.{js,css,md}": "prettier --write"
-    },
-    "jest": {
-        "transform": {
-            "^.+\\.ts$": "ts-jest"
-        },
-        "testRegex": "(/tests/.*|(\\.|/)(test|spec))\\.tsx?$",
-        "moduleFileExtensions": [
-            "js",
-            "ts"
-        ],
-        "coverageReporters": [
-            "json-summary",
-            "text",
-            "lcov"
-        ]
     }
 }
