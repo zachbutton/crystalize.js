@@ -249,9 +249,9 @@ console.log(crystalizer.partialCrystal); // { total: 9 }
 console.log(crystalizer.partialShards); // [{ value: 1 }]
 console.log(crystalizer.asCrystal()); // { total: 10 }
 
-// with keepCount 0 (or keepAll)
-console.log(crystalizer.partialCrystal); // { total: 0 }
-console.log(crystalizer.partialShards); // [{ value: 2 }, { value: 7 }, { value: 1 }]
+// with keepCount 0 (or keepNone)
+console.log(crystalizer.partialCrystal); // { total: 10 }
+console.log(crystalizer.partialShards); // []
 console.log(crystalizer.asCrystal()); // { total: 10 }
 ```
 
