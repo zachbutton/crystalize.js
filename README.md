@@ -74,15 +74,14 @@ All crystalizer's must be initialized with at least these options. The option `i
 
 Crystalizer objects are immutable, so all methods return a new Crystalizer instance instead of modifying the existing one.
 
-You can call the method `modify` which exposes the API with which you use to add or remove shards from the crystalizer.
+You can use the methods `with` or `without` to return a new crystalizer with the shards added or removed.
 
 ```javascript
 crystalizer = crystalizer
-    .modify(m => m.with({ value: 2 })
-    .modify(m => {
-        m.with({ value: 10 }).with({ value: 7 })
-    })
-    .modify(m => m.with({ value: 1}).without(s => s.value == 10));
+    .with({ value: 2 })
+    .with([ { value: 10 }, { value: 7 } ])
+    .without(s => s.value == 10))
+    .with({ value: 1 });
 ```
 
 #### Harden
@@ -92,8 +91,8 @@ Above, we defined the following changes:
 -   Add a shard with value 2
 -   Add a shard with value 10
 -   Add a shard with value 7
--   Add a shard with value 1
 -   Remove shards with value 10
+-   Add a shard with value 1
 
 However, these transformations have not taken place yet. We have a new crystalizer which is prepared to commit those changes. But, the new crystal will not be generated until we harden the crystalizer.
 
@@ -150,11 +149,10 @@ let crystalizer = new Crystalizer({
 });
 
 crystalizer = crystalizer
-    .modify(m => m.with({ value: 2 })
-    .modify(m => {
-        m.with({ value: 10 }).with({ value: 7 })
-    })
-.modify(m => m.with({ value: 1}).without(s => s.value == 10));
+    .with({ value: 2 })
+    .with([ { value: 10 }, { value: 7 } ])
+    .without(s => s.value == 10))
+    .with({ value: 1 });
 
 crystalizer = crystalizer.harden();
 
@@ -185,7 +183,7 @@ let c = new Crystalizer<{ total: number}, { value: number }>({
     reducer: (c, s) => ({ count: c.count + s.value }) // TS error
 });
 
-c = c.modify(m => m.with({ count: 1 })); // TS error
+c = c.with({ count: 1 }); // TS error
 ```
 
 For most of this documentation, JS will be used for readability.
@@ -303,7 +301,7 @@ let crystalizer = new Crystalizer({
         seek: (shard) => now() - shard.ts <= WEEK,
     },
 
-    sortBy: (a, b) => a.ts - b.ts,
+    sort: (a, b) => a.ts - b.ts,
 });
 ```
 
@@ -340,7 +338,7 @@ When you call `.harden()`, **only** the shards up to the pointer will be include
 
 The shards _beyond_ the crystal are effectively non-existent unless you move the pointer after them.
 
-Using the `.modify()` function will reset the pointer back to 0, with all shards beyond the old pointer lost to the void of `/dev/null`.
+Using the `.with()` or `.without()` methods will reset the pointer back to 0, with all shards beyond the old pointer lost to the void of `/dev/null`.
 
 ## Examples
 
@@ -363,7 +361,7 @@ const Incrementer = () => {
     let [crystalizer, setCrystalizer] = useState(baseIncrementerCrystalizer);
 
     const inc = (count) => {
-        setCrystalizer(crystalizer.modify((m) => m.with({ count })));
+        setCrystalizer(crystalizer.with({ count }));
     };
 
     const movePointer = (n) => {
@@ -435,7 +433,7 @@ export async function dispatch(action) {
     api.post('/event', { data: action });
 
     // generate a new crystalizer with the action, and harden it
-    crystalizer = crystalizer.modify((m) => m.with(action)).harden();
+    crystalizer = crystalizer.with(action).harden();
 
     // emit the new state to subscribers to consume
     subscribers.emit(crystalizer.asCrystal());
@@ -462,7 +460,7 @@ api.get('/state', (req) => {
 
 api.post('/event', (req) => {
     const crystal = getUserCrystal(req.jwt.userId);
-    const newState = crystal.modify((m) => m.with(req.body)).harden();
+    const newState = crystal.with(req.body).harden();
 
     setUserState(req.jwt.userId, newState.asCrystal());
 });
@@ -514,7 +512,7 @@ export async function dispatch(action) {
     api.post('/event', { data: action });
 
     // generate a new crystalizer with the action, and harden it
-    crystalizer = crystalizer.modify((m) => m.with(action)).harden();
+    crystalizer = crystalizer.with(action).harden();
 
     // emit the new state to subscribers to consume
     subscribers.emit(crystalizer.asCrystal());
@@ -532,10 +530,7 @@ import { makeCrystalizer } from '../../Common';
 api.get('/state', (req) => {
     const events = getAllUserEvents(userId);
 
-    return makeCrystalizer()
-        .modify((m) => m.with(events))
-        .harden()
-        .asCrystal();
+    return makeCrystalizer().with(events).harden().asCrystal();
 });
 
 api.post('/event', (req) => {
@@ -557,6 +552,5 @@ WIP
 
 ## Planned features
 
--   Shorthand for `modify` function. Direct calling of `with` and `without` ?
 -   Dump entire crystalizer state (as well as modes, pointers, etc.) into JSON format, and ability to import the same state from JSON.
 -   When a `tsKey` parameter exists, apply timestamps to all shards that do not already have a value of that key. Introduce a new mode that just checks timestamps, which is just a QOL improvement on the includeAfter mode. Automatically sort by that timestep, with user-supplied sort being a tie-breaker.

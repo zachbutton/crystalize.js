@@ -10,7 +10,7 @@ describe('Crystalizer', () => {
             .fill(0)
             .map((_, i) => ({ value: 2, id: startingId + i }));
 
-        return crystalizer.modify((m) => m.with(newShards));
+        return crystalizer.with(newShards);
     };
 
     const setup = (opts: object = {}) => {
@@ -63,9 +63,9 @@ describe('Crystalizer', () => {
 
             testBasicAddedShards(c, 20, 5, 10);
         });
-        describe('keepSeekFirst', () => {
+        describe('keepAfter', () => {
             const seek = (shard: any) => shard.id == 2;
-            const c = add(setup({ mode: { type: 'keepSeekFirst', seek } }), 10);
+            const c = add(setup({ mode: { type: 'keepAfter', seek } }), 10);
 
             testBasicAddedShards(c, 20, 8, 4);
         });
@@ -132,6 +132,67 @@ describe('Crystalizer', () => {
         });
     });
 
-    // TODO: Test Modifier.without function
-    // TODO: Test that using the modifier resets ptr to 0
+    describe('without', () => {
+        it('removes shards', () => {
+            let c = setup();
+
+            c = add(c, 5);
+            c = add(c, 5);
+            c = add(c, 5);
+            c = add(c, 5);
+            c = add(c, 5);
+
+            c = c
+                .without((s) => s.id == 0)
+                .without((s) => s.id == 2)
+                .without((s) => s.id == 5);
+
+            expect(c.harden().partialShards).toEqual([
+                { value: 2, id: 1 },
+                { value: 2, id: 3 },
+                { value: 2, id: 4 },
+                { value: 2, id: 1 },
+                { value: 2, id: 3 },
+                { value: 2, id: 4 },
+                { value: 2, id: 1 },
+                { value: 2, id: 3 },
+                { value: 2, id: 4 },
+                { value: 2, id: 1 },
+                { value: 2, id: 3 },
+                { value: 2, id: 4 },
+                { value: 2, id: 1 },
+                { value: 2, id: 3 },
+                { value: 2, id: 4 },
+            ]);
+        });
+    });
+
+    describe('sort', () => {
+        it('sorts correctly per supplied sort fn', () => {
+            let c = setup({ sort: (a, b) => a.id - b.id });
+            c = add(c, 3);
+            c = add(c, 3);
+            c = add(c, 3);
+            c = add(c, 3);
+
+            expect(c.harden().partialShards).toEqual([
+                { value: 2, id: 0 },
+                { value: 2, id: 0 },
+                { value: 2, id: 0 },
+                { value: 2, id: 0 },
+
+                { value: 2, id: 1 },
+                { value: 2, id: 1 },
+                { value: 2, id: 1 },
+                { value: 2, id: 1 },
+
+                { value: 2, id: 2 },
+                { value: 2, id: 2 },
+                { value: 2, id: 2 },
+                { value: 2, id: 2 },
+            ]);
+        });
+    });
+
+    // TODO: Test that using `with` or `without` resets ptr to 0
 });
