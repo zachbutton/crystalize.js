@@ -94,7 +94,7 @@ Above, we defined the following changes:
 -   Remove shards with value 10
 -   Add a shard with value 1
 
-However, these transformations have not taken place yet. We have a new crystalizer which is prepared to commit those changes. But, the new crystal will not be generated until we harden the crystalizer.
+However, these transformations have not taken place yet. We have a new crystalizer that is prepared to commit those changes. But, the new crystal will not be generated until we harden the crystalizer.
 
 ```javascript
 crystalizer = crystalizer.harden();
@@ -132,7 +132,7 @@ To illustrate:
 [partial crystal] -> [N quantity of shards] -> [final output via asCrystal()]
 ```
 
-By default, `N` is infinite. It's configurable, and can also be determined statically or programatically (for example, by timestamp).
+By default, `N` is infinite. It's configurable, and can also be determined statically or programmatically (for example, by timestamp).
 
 This will be explained in more detail in [Advanced usage](#advanced-usage).
 
@@ -192,7 +192,7 @@ For most of this documentation, JS will be used for readability.
 
 #### Modes
 
-As mentioned in the [Basic usage](#basic-usage), we can collapse our shards into a partial crystal which can be preserved. We might want to do this if we're processing lots of data, or alternatively, to minimize network transmission.
+As mentioned in the [Basic usage](#basic-usage), we can collapse our shards into a partial crystal that can be preserved. We might want to do this if we're processing lots of data, or alternatively, to minimize network transmission.
 
 Here's the diagram from before, as a reminder:
 
@@ -209,7 +209,7 @@ There are 4 modes that define how many shards we'll keep:
 -   keepCount
 -   keepAfter
 
-In the earlier section, we went over the default mode, keepAll. No shards are collapsed, thus the partial crystal is always identical to our initial state. The next mode, keepNone, what it sounds like. We don't keep any shards, and the partial crystal is the same as the value you get from `.asCrystal()`.
+In the earlier section, we went over the default mode, keepAll. No shards are collapsed, thus the partial crystal is always identical to our initial state. The next mode, keepNone, is what it sounds like. We don't keep any shards, and the partial crystal is the same as the value you get from `.asCrystal()`.
 
 Somewhere in between, we have keepCount. But it's essentially similar in that there's a definite, static value of 'N', the number of shards we keep.
 
@@ -253,9 +253,9 @@ console.log(crystalizer.partialShards); // []
 console.log(crystalizer.asCrystal()); // { total: 10 }
 ```
 
-Now, let's take a look at keepAfter. This is where it starts to get interesting, and you have a lot of flexibility in how you implement it and for what use-case you're using it for.
+Now, let's take a look at keepAfter. This is where it starts to get interesting, and you have a lot of flexibility in how you implement it depending on you use case.
 
-The useAfter mode is passed with a `seek` function. In the seek function, you simple return `true` for the first shard which you would like to be kept.
+The useAfter mode is passed with a `seek` function. In the seek function, you simply return `true` for the first shard you would like to be kept.
 
 ```javascript
 new Crystalizer({
@@ -265,7 +265,7 @@ new Crystalizer({
 })
 ```
 
-You can implement anything you want here. One use-case would be keep all shards with a time stamp within a certain distance from the current time:
+You can implement anything you want here. One use-case would be to keep all shards with a time stamp within a certain distance from the current time:
 
 ```javascript
 const WEEK = 1000 * 60 * 60 * 24 * 7;
@@ -283,7 +283,7 @@ let crystalizer = new Crystalizer({
 });
 ```
 
-Now, all shards that are older than 1 week will automatically be collapsed into the partial crystal during the `harden()` cycle.
+Now, all shards that are older than 1 week will automatically collapse into the partial crystal during the `harden()` cycle.
 
 In practical applications, we'll want to watch out for how much work the `seek` function is doing since it's executing for each of our shards. In this example, we're creating a new `Date` object, so we would want to do something a little more clever here if we're dealing with large data sets. But, this should serve as a working example.
 
@@ -305,8 +305,7 @@ let crystalizer = new Crystalizer({
 });
 ```
 
-That's it, and now we're certain the seek function of our keepAfter mode will do what we intend it to do. During the harden cycle, the shards will be sorted,
-the seek function will be ran, and every shard that comes before the _first_ shard our seek function returned true for, will be collapsed into the partial crystal.
+That's it, and now we're certain the seek function of our keepAfter mode will do what we intend it to do. During the hardening cycle, the shards will be sorted, the seek function will be run, and every shard that comes before the _first_ shard our seek function returned true for will be collapsed into the partial crystal.
 
 #### Pointers
 
@@ -316,7 +315,7 @@ Crystalizers keep an internal pointer. There are a few ways to manipulate the po
 -   withHeadInc
 -   withHeadTop
 
-There are lots of potential use-cases, most notably being an undo/redo feature. You could utilize `withHeadInc` to undo or redo, or `withHeadAt` if you have an undo menu which lets you select a particular stage in an undo list.
+There are lots of potential use cases, most notably being an undo/redo feature. You could utilize `withHeadInc` to undo or redo, or `withHeadAt` if you have an undo menu that lets you select a particular stage in an undo list.
 
 ```javascript
 // undo
@@ -344,7 +343,7 @@ Using the `.with()` or `.without()` methods will reset the pointer back to 0, wi
 
 ### Application state
 
-Suppose you're making a basic incrementer app in React, like the sort you see in tutorials. Except, you want to spice it up with add an "Undo" feature.
+Suppose you're making a basic incrementer app in React, like the sort you see in tutorials. Except, you want to spice it up with an "Undo" feature.
 
 ```javascript
 import { Crystalizer } from 'crystalizer.js';
@@ -395,9 +394,9 @@ In today's web development landscape, we often grapple with the challenge of dup
 
 There are some approaches to dealing with this problem, from GraphQL which helps to decouple them, all the way to HTMX which virtually eliminates frontend state (although, we can consider the DOM itself to be yet another state on it's own).
 
-Each of these approaches have their use cases. One way we can utilize Crystalize.js is using it canonicalize our backend and frontend state. We'll still have state in both places, but we won't have to _programatically handle_ both states. It's not technically a single source of truth, but it's a _single source of logic_.
+Each of these approaches has its use cases. One way we can utilize Crystalize.js is using it to canonicalize our backend and frontend state. We'll still have state in both places, but we won't have to _programatically handle_ both states. It's not technically a single source of truth, but it's a _single source of logic_.
 
-This will be some heavy psuedo-code, so get ready.
+This will be some heavy pseudo code, so get ready.
 
 **Common**
 
@@ -466,11 +465,11 @@ api.post('/event', (req) => {
 });
 ```
 
-You might have wondered how, in the backend, we go from `getUserState` straight to constructing a `Crystalizer` intance, which takes an object. This depends on your architecture, and this pattern will work best with non-relational databases such as Mongo, or other databases that are document-driven and allows you to get a simple object.
+You might have wondered how, in the backend, we go from `getUserState` straight to constructing a `Crystalizer` intance, which takes an object. This depends on your architecture, and this pattern will work best with non-relational databases such as Mongo, or other databases that are document-driven and allow you to get a simple object.
 
 For relational databases, we lose the _single source of logic_ here since you would still have to construct the object passed into the Crystalizer.
 
-But, that brings us to the next use-case:
+But, that brings us to the next use case:
 
 ### Event-driven canonical state
 
