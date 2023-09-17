@@ -1,14 +1,12 @@
-import * as Immutable from 'seamless-immutable';
+import deepCopy from './utils/deepCopy';
 
 type Primitive = string | number | boolean | null | undefined;
 type PlainObject = {
     [key: string]: Primitive | Primitive[] | PlainObject;
 };
 
-type Immutizer = <T>(obj: T) => Readonly<T>;
-
-type ShardSeekFn<Shard> = (shard: Shard) => boolean;
-type ShardSortFn<Shard> = (a: Shard, b: Shard) => number;
+type ShardSeekFn<Shard> = (shard: Readonly<Shard>) => boolean;
+type ShardSortFn<Shard> = (a: Readonly<Shard>, b: Readonly<Shard>) => number;
 
 type ModeKeepAll = { type: 'keepAll' };
 type ModeKeepNone = { type: 'keepNone' };
@@ -26,9 +24,9 @@ type PtrFinderSeek<Shard> = { type: 'seek'; seek: ShardSeekFn<Shard> };
 type PtrFinder<Shard> = PtrFinderAbsolute | PtrFinderSeek<Shard>;
 
 type Opts<Crystal, Shard> = {
-    initial: Crystal;
+    initial: Readonly<Crystal>;
     reducer: (crystal: Crystal, shard: Shard) => Crystal;
-    makeImmutable?: Immutizer;
+    copy?: (obj: unknown) => unknown;
     mode?: Mode<Shard>;
     sort?: ShardSortFn<Shard>;
     tsKey?: string;
@@ -38,23 +36,22 @@ type Opts<Crystal, Shard> = {
     __getTime?: () => number;
 };
 
-const useSeamlessImmutable: Immutizer = <T>(obj: T) => {
-    return Immutable(obj) as T;
-};
-
 export class Crystalizer<
     Crystal extends PlainObject = PlainObject,
     Shard extends PlainObject = Crystal,
 > {
     private opts: Opts<Crystal, Shard>;
 
-    private _generated?: { crystal: Crystal; shards: Shard[] };
-    private finalCrystal?: Crystal;
+    private _generated?: {
+        crystal: Readonly<Crystal>;
+        shards: Readonly<Shard[]>;
+        finalCrystal?: Readonly<Crystal>;
+    };
 
     constructor(opts: Opts<Crystal, Shard>) {
         opts = {
             mode: { type: 'keepAll' },
-            makeImmutable: useSeamlessImmutable,
+            copy: deepCopy,
             ...opts,
         };
 
@@ -64,8 +61,8 @@ export class Crystalizer<
             );
         }
 
-        opts.initial = opts.makeImmutable(opts.initial);
-        opts.__newShards = opts.makeImmutable(opts.__newShards || []);
+        opts.initial = opts.copy(opts.initial) as Crystal;
+        opts.__newShards = opts.__newShards || [];
         opts.__ptrFinder = opts.__ptrFinder || { type: 'absolute', ptr: 0 };
         opts.__getTime = opts.__getTime || (() => +new Date());
 
@@ -114,31 +111,42 @@ export class Crystalizer<
     }
 
     with(shards: Shard | Shard[]) {
-        shards = shards instanceof Array ? shards : [shards];
+        shards = this.opts.copy(
+            shards instanceof Array ? shards : [shards],
+        ) as Shard[];
+
+        if (this.opts.tsKey) {
+            const now = this.opts.__getTime();
+            shards = shards.map((s) => ({ [this.opts.tsKey]: now, ...s }));
+        }
 
         return this.buildNew({
             ...this.opts,
-            __newShards: this.opts.__newShards.concat(shards),
+            __newShards: this.pendingShards.concat(shards),
         });
     }
 
     without(seek: ShardSeekFn<Shard>) {
         return this.buildNew({
             ...this.opts,
-            __newShards: this.opts.__newShards.filter((s) => !seek(s)),
+            __newShards: this.pendingShards.filter((s) => !seek(s)),
         });
     }
 
+    private get pendingShards() {
+        return this.hardened ? this.generated.shards : this.opts.__newShards;
+    }
+
+    private get pendingCrystal() {
+        return this.hardened ? this.generated.crystal : this.opts.initial;
+    }
+
     private buildNew(opts: Opts<Crystal, Shard>) {
-        const override = this.hardened
-            ? {
-                  initial: this.generated.crystal,
-                  __newShards: this.generated.shards,
-              }
-            : {};
-
-        const newOpts = { ...opts, ...override };
-
+        const newOpts = {
+            initial: this.pendingCrystal,
+            __newShards: this.pendingShards,
+            ...opts,
+        };
         return new Crystalizer<Crystal, Shard>(newOpts);
     }
 
@@ -185,12 +193,9 @@ export class Crystalizer<
 
     private _harden() {
         let crystal = this.opts.initial;
-        let shards: Shard[] = [...(this.opts.__newShards || [])];
-
-        if (this.opts.tsKey) {
-            const now = this.opts.__getTime();
-            shards = shards.map((s) => ({ [this.opts.tsKey]: now, ...s }));
-        }
+        let shards: Shard[] = this.opts.copy(
+            this.pendingShards || [],
+        ) as Shard[];
 
         if (this.opts.sort) {
             shards.sort(this.opts.sort);
@@ -226,7 +231,7 @@ export class Crystalizer<
             crystal = this.reduceInto(crystal, shardsToCrystalize);
         }
 
-        this._generated = this.opts.makeImmutable({ crystal, shards });
+        this._generated = { crystal, shards };
     }
 
     harden() {
@@ -240,24 +245,32 @@ export class Crystalizer<
         });
     }
 
+    get last() {
+        const shards = this.partialShards;
+
+        return this.opts.copy(shards[shards.length - 1]) as Shard;
+    }
+
     get partialCrystal() {
-        return this.generated.crystal;
+        const crystal: Crystal = this.generated.crystal;
+        return this.opts.copy(crystal) as Crystal;
     }
 
     get partialShards() {
-        return this.getShardsLimitedByPtr(this.generated.shards);
+        const shards: Readonly<Shard[]> = this.getShardsLimitedByPtr(
+            this.generated.shards,
+        );
+        return this.opts.copy(shards) as Shard[];
     }
 
     asCrystal() {
-        if (!this.finalCrystal) {
-            this.finalCrystal = this.opts.makeImmutable(
-                this.reduceInto(
-                    this.generated.crystal,
-                    this.getShardsLimitedByPtr(this.generated.shards),
-                ),
+        if (!this.generated.finalCrystal) {
+            this.generated.finalCrystal = this.reduceInto(
+                this.generated.crystal,
+                this.getShardsLimitedByPtr(this.generated.shards),
             );
         }
 
-        return this.finalCrystal;
+        return this.opts.copy(this.generated.finalCrystal) as Crystal;
     }
 }
