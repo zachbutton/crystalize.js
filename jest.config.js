@@ -4,6 +4,6 @@ module.exports = {
     },
     testRegex: '(/tests/.*|(\\.|/)(test|spec))\\.tsx?$',
     moduleFileExtensions: ['js', 'ts'],
-    coverageReporters: ['json-summary'],
-    coverageReporters: ['json-summary'],
+    coverageReporters: ['json-summary', 'html'],
+    coverageReporters: ['json-summary', 'html'],
 };
