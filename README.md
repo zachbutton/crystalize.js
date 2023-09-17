@@ -7,4 +7,6 @@
 
 This is in early development, and all changes (including breaking changes) will be patch versions for now.
 
+Current development is in rewrite/draft-2.
+
 # THIS WILL BREAK
