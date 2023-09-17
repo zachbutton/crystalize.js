@@ -31,9 +31,11 @@ type Opts<Crystal, Shard> = {
     makeImmutable?: Immutizer;
     mode?: Mode<Shard>;
     sort?: ShardSortFn<Shard>;
-    __shards?: Readonly<Shard[]>;
+    tsKey?: string;
+    __newShards?: Readonly<Shard[]>;
     __harden?: boolean;
     __ptrFinder?: PtrFinder<Shard>;
+    __getTime?: () => number;
 };
 
 const useSeamlessImmutable: Immutizer = <T>(obj: T) => {
@@ -56,9 +58,16 @@ export class Crystalizer<
             ...opts,
         };
 
+        if (opts.tsKey && opts.sort) {
+            throw new Error(
+                `Cannot construct Crystalizer with tsKey and sort simultaneously.`,
+            );
+        }
+
         opts.initial = opts.makeImmutable(opts.initial);
-        opts.__shards = opts.makeImmutable(opts.__shards || []);
+        opts.__newShards = opts.makeImmutable(opts.__newShards || []);
         opts.__ptrFinder = opts.__ptrFinder || { type: 'absolute', ptr: 0 };
+        opts.__getTime = opts.__getTime || (() => +new Date());
 
         this.opts = opts;
 
@@ -73,7 +82,7 @@ export class Crystalizer<
         // the end of the shard array (most recent). But in the exposed interface,
         // for sake of intuitiveness, negative values move the pointer into the
         // past, while positive values move the pointer into the future.
-        return new Crystalizer({
+        return this.buildNew({
             ...this.opts,
             __ptrFinder: { type: 'absolute', ptr: -ptr },
         });
@@ -107,17 +116,30 @@ export class Crystalizer<
     with(shards: Shard | Shard[]) {
         shards = shards instanceof Array ? shards : [shards];
 
-        return new Crystalizer<Crystal, Shard>({
+        return this.buildNew({
             ...this.opts,
-            __shards: this.opts.__shards.concat(shards),
+            __newShards: this.opts.__newShards.concat(shards),
         });
     }
 
     without(seek: ShardSeekFn<Shard>) {
-        return new Crystalizer<Crystal, Shard>({
+        return this.buildNew({
             ...this.opts,
-            __shards: this.opts.__shards.filter((s) => !seek(s)),
+            __newShards: this.opts.__newShards.filter((s) => !seek(s)),
         });
+    }
+
+    private buildNew(opts: Opts<Crystal, Shard>) {
+        const override = this.hardened
+            ? {
+                  initial: this.generated.crystal,
+                  __newShards: this.generated.shards,
+              }
+            : {};
+
+        const newOpts = { ...opts, ...override };
+
+        return new Crystalizer<Crystal, Shard>(newOpts);
     }
 
     private getPtrIndex(shards: Readonly<Shard[]>) {
@@ -163,7 +185,12 @@ export class Crystalizer<
 
     private _harden() {
         let crystal = this.opts.initial;
-        let shards: Shard[] = [...(this.opts.__shards || [])];
+        let shards: Shard[] = [...(this.opts.__newShards || [])];
+
+        if (this.opts.tsKey) {
+            const now = this.opts.__getTime();
+            shards = shards.map((s) => ({ [this.opts.tsKey]: now, ...s }));
+        }
 
         if (this.opts.sort) {
             shards.sort(this.opts.sort);
@@ -207,7 +234,7 @@ export class Crystalizer<
             return this;
         }
 
-        return new Crystalizer<Crystal, Shard>({
+        return this.buildNew({
             ...this.opts,
             __harden: true,
         });

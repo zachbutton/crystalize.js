@@ -16,7 +16,7 @@ describe('Crystalizer', () => {
     const setup = (opts: object = {}) => {
         return new Crystalizer<
             { total: number },
-            { value: number; id: number }
+            { value: number; id: number; ts?: number }
         >({
             initial: { total: 0 },
             reducer: (crystal, shard) => ({
@@ -32,7 +32,7 @@ describe('Crystalizer', () => {
             expect(c.harden().partialShards.length).toBe(pLen);
             expect(c.harden().partialCrystal.total).toBe(pTot);
 
-            let startingShards = (c as any).opts.__shards;
+            let startingShards = (c as any).opts.__newShards;
             const ptr = (c as any).opts.__ptrFinder.ptr;
             startingShards =
                 ptr == 0 ? startingShards : startingShards.slice(0, -ptr);
@@ -124,11 +124,13 @@ describe('Crystalizer', () => {
             c = c.withHeadTop();
             c = add(c, 10, 10);
             c = c.harden();
+            c = c.withHeadAt(-4);
+            testBasicAddedShards(c, 32, 2, 28);
             c = c.withHeadAt(-8);
-            testBasicAddedShards(c, 24, 6, 12);
+            testBasicAddedShards(c, 28, 0, 28);
 
             c = c.withHeadAt(-1);
-            testBasicAddedShards(c, 38, 6, 26);
+            testBasicAddedShards(c, 38, 5, 28);
         });
     });
 
@@ -191,6 +193,60 @@ describe('Crystalizer', () => {
                 { value: 2, id: 2 },
                 { value: 2, id: 2 },
             ]);
+        });
+    });
+
+    describe('tsKey', () => {
+        it("adds keys if they don't exist", () => {
+            const now = 50;
+            let c = setup({ tsKey: 'ts', __getTime: () => now });
+
+            c = add(c, 3).harden();
+
+            expect(c.partialShards).toEqual([
+                { value: 2, id: 0, ts: now },
+                { value: 2, id: 1, ts: now },
+                { value: 2, id: 2, ts: now },
+            ]);
+        });
+
+        it('skips if key is already specified', () => {
+            const now = 50;
+            let c = setup({ tsKey: 'ts', __getTime: () => now });
+
+            c = add(c, 2);
+            c = c.with({ id: 2, value: 2, ts: 5 });
+            c = add(c, 2, 3);
+            c = c.harden();
+
+            expect(c.partialShards).toEqual([
+                { value: 2, id: 0, ts: now },
+                { value: 2, id: 1, ts: now },
+                { value: 2, id: 2, ts: 5 },
+                { value: 2, id: 3, ts: now },
+                { value: 2, id: 4, ts: now },
+            ]);
+        });
+
+        it('throws if specified alongside sort fn', () => {
+            const make = () => setup({ tsKey: 'ts', sort: () => 1 });
+            expect(make).toThrow();
+        });
+    });
+
+    describe('equivalency', () => {
+        it('Crystalizer made with same crystal, shards, and opts should have matching results', () => {
+            const opts = { mode: { type: 'keepCount', count: 4 } };
+            let c1 = setup(opts);
+
+            c1 = add(c1, 20).harden();
+
+            let c2 = setup({ ...opts, initial: c1.partialCrystal });
+            c2 = c2.with(c1.partialShards.slice()).harden();
+
+            expect(c1.partialCrystal).toEqual(c2.partialCrystal);
+            expect(c1.partialShards).toEqual(c2.partialShards);
+            expect(c1.asCrystal()).toEqual(c2.asCrystal());
         });
     });
 
