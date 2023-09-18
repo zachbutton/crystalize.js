@@ -649,11 +649,106 @@ Our backend is now quite slim, effectively operating as a simple event store.
 
 #### Types
 
-WIP
+**PlainObject**
+
+```typescript
+type Primitive = string | number | boolean | null | undefined;
+type PlainObject = {
+    [key: string]: Primitive | Primitive[] | PlainObject;
+};
+```
+
+**Shard**
+
+```typescript
+interface Shard extends PlainObject {}
+```
+
+**Crystal**
+
+```typescript
+interface Crystal extends PlainObject {}
+```
+
+**Crystalizer**
+
+```typescript
+declare class Crystalizer<Crystal, Shard> {}
+```
 
 #### Methods
 
-WIP
+**constructor**
+
+```typescript
+constructor(opts: Opts<Crystal, Shard>);
+```
+
+**withHeadAt**
+
+```typescript
+withHeadAt(ptr: number): Crystalizer<Crystal, Shard>;
+```
+
+**withHeadTop**
+
+```typescript
+withHeadTop(): Crystalizer<Crystal, Shard>;
+```
+
+**withHeadInc**
+
+```typescript
+withHeadInc(inc: number): Crystalizer<Crystal, Shard>;
+```
+
+**withHeadSeek**
+
+```typescript
+withHeadSeek(seek: ShardSeekFn<Shard>): Crystalizer<Crystal, Shard>;
+```
+
+**with**
+
+```typescript
+with(shards: Shard | Shard[]): Crystalizer<Crystal, Shard>;
+```
+
+**without**
+
+```typescript
+without(seek: ShardSeekFn<Shard>): Crystalizer<Crystal, Shard>;
+```
+
+**harden**
+
+```typescript
+harden(): Crystalizer<Crystal, Shard>;
+```
+
+**get last**
+
+```typescript
+get last(): Shard;
+```
+
+**get partialCrystal**
+
+```typescript
+get partialCrystal(): Crystal;
+```
+
+**get partialShards**
+
+```typescript
+get partialShards(): Shard[];
+```
+
+**asCrystal**
+
+```typescript
+asCrystal(): Crystal;
+```
 
 ## Planned features
 

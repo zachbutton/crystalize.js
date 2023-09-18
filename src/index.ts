@@ -295,15 +295,3 @@ export class Crystalizer<
         // (see this.pendingShards)
     }
 }
-
-function deepFreeze(obj: unknown): unknown {
-    if (obj instanceof Array) {
-        obj.forEach(deepFreeze);
-    }
-
-    if (obj instanceof Object) {
-        Object.keys(obj).forEach((key) => deepFreeze(obj[key]));
-    }
-
-    return Object.freeze(obj);
-}
