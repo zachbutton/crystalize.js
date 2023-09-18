@@ -53,7 +53,7 @@ npm i -D crystalize.js
 ### Initialize
 
 ```javascript
-import { Crystalizer } from './crystalize.js';
+import Crystalizer from 'crystalize.js';
 
 let crystalizer = new Crystalizer({
     // options
@@ -144,7 +144,7 @@ This will be explained in more detail in [Advanced usage](#advanced-usage).
 Here's what we did above all in one place, for easy reference:
 
 ```javascript
-import { Crystalizer } from 'crystalize.js';
+import Crystalizer from 'crystalize.js';
 
 let crystalizer = new Crystalizer({
     initial: { total: 0 },
@@ -455,7 +455,7 @@ if (crystalizer.last.id == desiredId) {
 Suppose you're making a basic incrementer app in React, like the sort you see in tutorials. Except, you want to spice it up with an "Undo" feature.
 
 ```javascript
-import { Crystalizer } from 'crystalizer.js';
+import Crystalizer from 'crystalizer.js';
 
 import { useState } from 'react';
 
