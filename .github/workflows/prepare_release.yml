@@ -17,8 +17,9 @@ jobs:
               with:
                   branches: main
             - name: Bump and changelog using commitizen
-              uses: commitizen-tools/commitizen-action@0.20.0
+              run: npm run version:bump
+            - name: Push changes
+              uses: ad-m/github-push-action@master
               with:
                   github_token: ${{ secrets.GITHUB_TOKEN }}
-                  commit: true
-                  push: true
+                  tags: true
