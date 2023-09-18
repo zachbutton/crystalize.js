@@ -729,10 +729,10 @@ type Opts<Crystal, Shard> = {
 ```typescript
 constructor(opts: Opts<Crystal, Shard>);
 
-// Set's head to exact position and returns a new Crystal
+// Sets head to exact position and returns a new Crystal
 withHeadAt(ptr: number): Crystalizer<Crystal, Shard>;
 
-// Set's head to 0 and returns a new Crystal
+// Sets head to 0 and returns a new Crystal
 withHeadTop(): Crystalizer<Crystal, Shard>;
 
 // Increments numeric head by specified value and returns a new Crystal
