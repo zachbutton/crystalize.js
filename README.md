@@ -26,9 +26,9 @@ The Crystalizer.js library introduces a structured methodology for data manageme
     -   [Last](#last)
     -   [Typescript](#typescript)
 -   [Advanced usage](#advanced-usage)
-    -   [Modes](#modes)
     -   [Sorting](#sorting)
     -   [Time sort](#time-sort)
+    -   [Modes](#modes)
     -   [Pointers](#pointers)
 -   [Examples](#examples)
     -   [Application state](#application-state)
@@ -321,7 +321,7 @@ The useAfter mode is passed with a `seek` function. In the seek function, you si
 new Crystalizer({
     ...,
 
-    seek: { type: 'keepAfter', seek: (shard) => { ... } }
+    mode: { type: 'keepAfter', seek: (shard) => { ... } }
 })
 ```
 
