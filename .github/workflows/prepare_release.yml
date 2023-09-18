@@ -12,6 +12,12 @@ jobs:
                   fetch-depth: 0
                   ref: main
                   token: ${{ secrets.GIT_ACCESS_TOKEN }}
+            - name: Ensure no double-release
+              run: |
+                  if git log -1 --pretty=%B | grep -qE "^chore\(release\)"; then
+                      echo "Latest commit starts with 'chore(release)'. Exiting."
+                      exit
+                  fi
             - name: Deps
               run: npm ci
             - name: Tests
