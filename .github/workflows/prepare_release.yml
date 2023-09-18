@@ -20,8 +20,10 @@ jobs:
               uses: jpb06/jest-badges-action@latest
               with:
                   branches: main
+                  no-commit: true
             - name: Bump and changelog using commitizen
               run: |
+                  git add coverage
                   git config --local user.email "github-actions@github.com"
                   git config --local user.name "github-actions"
                   npm run version:bump
