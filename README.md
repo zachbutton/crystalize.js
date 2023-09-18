@@ -9,7 +9,7 @@
 
 # Crystalize.js
 
-The Crystalize.js library is your magic wand for data wizardry, introducing a methodology for data management: "Crystals" and their foundational building blocks, "Shards". Think of a "Crystal" as an iceberg, immutably capturing the essence of time and tales, representing a culmination of data or states. Imagine "Shards" as the droplets that over time, meld to craft these icebergs. Now imagine that you could turn back the clock, and see the formation of the iceberg at different points in its history. 
+The Crystalize.js library is your magic wand for data wizardry, introducing a methodology for data management: "Crystals" and their foundational building blocks, "Shards". Think of a "Crystal" as an iceberg, immutably capturing the essence of time and tales, representing a culmination of data or states. Imagine "Shards" as the droplets that over time, meld to craft these icebergs. Now imagine that you could turn back the clock, and see the formation of the iceberg at different points in its history.
 
 That is Crystalize.js. It's like a reducer on steroids, but if reducers had undo/redo and time-travel.
 
@@ -188,7 +188,7 @@ console.log(crystalizer.last); // { value: 1 }
 Since Crystalize.js is written in Typescript, your LSP can make use of the types, and you can constrain which types to be used as Crystals and Shards.
 
 ```typescript
-new Crystalyzer<Crystal, Shard>({ ... })
+new Crystalizer<Crystal, Shard>({ ... })
 
 // to match the Basic Usage example above,
 new Crystalizer<{ total: number}, { value: number }>({ ... })
