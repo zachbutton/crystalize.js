@@ -6,8 +6,17 @@ jobs:
     prepare_release:
         runs-on: ubuntu-latest
         steps:
+            - name: GH_TOKEN
+              if: env.GH_TOKEN == ''
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: echo "GH_TOKEN=${GITHUB_TOKEN}" >> $GITHUB_ENV
             - name: Check out repository code
               uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+                  ref: main
+                  token: ${{ env.GH_TOKEN }}
             - name: Deps
               run: npm ci
             - name: Tests
@@ -18,8 +27,8 @@ jobs:
                   branches: main
             - name: Bump and changelog using commitizen
               run: |
-                  git config --local user.email "github-actions[bot]@users.noreply.github.com"
-                  git config --local user.name "github-actions[bot]"
+                  git config --local user.email "github-actions@github.com"
+                  git config --local user.name "github-actions"
                   npm run version:bump
                   git push -f
                   git push --tags
