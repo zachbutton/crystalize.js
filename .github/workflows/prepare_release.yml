@@ -12,22 +12,26 @@ jobs:
                   fetch-depth: 0
                   ref: main
                   token: ${{ secrets.GIT_ACCESS_TOKEN }}
-            - name: Ensure no double-release
+            - name: Check if we already released
               run: |
                   if git log -1 --pretty=%B | grep -qE "^chore\(release\)"; then
-                      echo "Latest commit starts with 'chore(release)'. Exiting."
-                      exit
+                      echo "ALREADY_RELEASED=true" >> "$GITHUB_ENV"
+                      echo "Already released, other steps should cancel"
                   fi
             - name: Deps
+              if: env.ALREADY_RELEASED != 'true'
               run: npm ci
             - name: Tests
+              if: env.ALREADY_RELEASED != 'true'
               run: npm run test:coverage
             - name: Generating coverage badges
+              if: env.ALREADY_RELEASED != 'true'
               uses: jpb06/jest-badges-action@latest
               with:
                   branches: main
                   no-commit: true
             - name: Bump and changelog using commitizen
+              if: env.ALREADY_RELEASED != 'true'
               run: |
                   git add badges
                   git config --local user.email "github-actions@github.com"
