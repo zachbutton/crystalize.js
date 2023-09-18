@@ -1,0 +1,16 @@
+name: Pull-request testing
+
+on:
+    pull_request:
+        branches: ['main']
+
+jobs:
+    pr_test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out repository code
+              uses: actions/checkout@v3
+            - name: Deps
+              run: npm ci
+            - name: Tests
+              run: npm run test
