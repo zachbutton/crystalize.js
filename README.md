@@ -738,6 +738,15 @@ interface Crystal extends PlainObject {}
 declare class Crystalizer<Crystal, Shard> {}
 ```
 
+**CrystalizerReducer**
+
+```typescript
+type CrystalizerReducer<Crystal, Shard> = (
+    crystal: Readonly<Crystal>,
+    shard: Readonly<Shard>,
+) => Crystal;
+```
+
 **ShardSeekFn**
 
 ```typescript
@@ -784,7 +793,7 @@ type Mode<Shard> =
 ```typescript
 type Opts<Crystal, Shard> = {
     initial: Crystal;
-    reducer: (crystal: Readonly<Crystal>, shard: Readonly<Shard>) => Crystal;
+    reducer: CrystalizerReducer<Crystal, Shard>;
     mode?: Mode<Shard>;
     sort?: ShardSortFn<Shard>;
     tsKey?: string;
