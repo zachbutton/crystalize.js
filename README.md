@@ -34,6 +34,7 @@ The Crystalizer.js library introduces a structured methodology for data manageme
     -   [Application state](#application-state)
     -   [Canonicalize frontend & backend state](#canonicalize-frontend--backend-state)
     -   [Event-driven canonical state](#event-driven-canonical-state)
+    -   [IO-style multiplayer time-travel game](#io-style-multiplayer-time-travel-game)
 -   [API reference](#api-reference)
     -   [Types](#types)
     -   [Methods](#methods)
@@ -644,6 +645,65 @@ api.post('/event', (req) => {
 ```
 
 Our backend is now quite slim, effectively operating as a simple event store.
+
+### IO-style multiplayer time-travel game
+
+Imagine a game that includes time travel. You can time travel up to 5 minutes into the past.
+
+We're going to put the game's state actions of each player into the crystalizer, as shards. Let's set up our crystalizer to always keep the last 5 minutes worth of shards.
+
+```javascript
+import { reducer, defaultState, TICK_DURATION } from './game-loop';
+
+const FIVE_MINUTES = 1000 * 60 * 5;
+const now = () => +new Date();
+
+let crystalizer = new Crystalizer({
+    initial: defaultState,
+    reducer,
+    tsKey: 'ts',
+    mode: {
+        type: 'keepAfter',
+        seek: (shard) => shard.ts >= now() - FIVE_MINUTES,
+    },
+});
+
+let gameTime = now();
+
+export function timeTravelExact(ts) {
+    crystalizer = crystalizer.withHeadSeek((shard) => shard.ts >= ts);
+    gameTime = ts;
+}
+
+export function timeTravelRelative(trel) {
+    gameTime = gameTime + trel;
+    timeTravelExact(gameTime);
+}
+
+export function timeTravelPresent() {
+    timeTravelExact(now());
+}
+
+export function tick() {
+    timeTravelRelative(TICK_DURATION);
+}
+
+export function addAction(action) {
+    // Explicitly set `ts` since it may not be present time.
+    // However, this might be called when we receive actions
+    // by other players via the network. So, if it has a timestamp
+    // already, we'll want to keep it.
+    action = { ts: gameTime, ...action };
+
+    crystalizer = crystalizer.with(action);
+}
+
+export function getState() {
+    return crystalizer.harden().asCrystal();
+}
+```
+
+With the above module, we've created an abstraction around Crystalizer that serves our use case well. We have methods to move to different points in time, as well as a way to add actions, taken by either the local player or remote players, and handle their positions in the timeline correctly. We can get the current state via `getState()`, and we'll get the correct game state at current point in time.
 
 ## API reference
 
