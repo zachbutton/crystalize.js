@@ -16,7 +16,7 @@
         "prepare": "husky install",
         "docs:update": "node docs.js",
         "commit": "cz",
-        "release": "npm test && npm run build:prod && standard-version"
+        "version:bump": "standard-version"
     },
     "author": "zachbutton",
     "license": "ISC",
