@@ -25,5 +25,3 @@ jobs:
                   git config --local user.email "github-actions@github.com"
                   git config --local user.name "github-actions"
                   npm run version:bump
-                  git push -f
-                  git push --tags
