@@ -17,9 +17,10 @@ jobs:
               with:
                   branches: main
             - name: Bump and changelog using commitizen
-              run: git config --local user.email "github-actions[bot]@users.noreply.github.com"
-              run: git config --local user.name "github-actions[bot]"
-              run: npm run version:bump
+              run: |
+                  git config --local user.email "github-actions[bot]@users.noreply.github.com"
+                  git config --local user.name "github-actions[bot]"
+                  npm run version:bump
             - name: Push changes
               uses: ad-m/github-push-action@master
               with:
