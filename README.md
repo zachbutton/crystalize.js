@@ -201,9 +201,57 @@ For most of this documentation, JS will be used for readability.
 
 ## Advanced usage
 
+### Sorting
+
+Sorting is about as straightforward as any other JS array. Suppose you have a `ts` key on each shard:
+
+```javascript
+let crystalizer = new Crystalizer({
+    ...
+    sort: (a, b) => a.ts - b.ts,
+});
+```
+
+That's it, and now we're certain the shards will be in the correct order per their timestamp, even if they were added out of order.
+
+### Time sort
+
+You can do the above a little bit easier by initializing with the `tsKey` parameter:
+
+```javascript
+let crystalizer = new Crystalizer({
+    ...
+    tsKey: 'ts',
+});
+```
+
+This will automatically sort by the `ts` key, like before. As a bonus, all added shards that do not already have the `ts` key will have one added automatically.
+
+```javascript
+const nextValue = 0;
+const adder = () => {
+    nextValue++;
+    let timed = nextValue == 3 ? { ts: 5 } : {};
+    crystalizer = crystalizer.with({ ...timed, value: nextValue });
+
+    setTimeout(adder, 1000);
+};
+adder();
+
+setTimeout(() => {
+    console.log(crystalizer.harden().partialShards);
+    // [
+    //     { value: 3, ts: 5 },
+    //     { value: 1, ts: 1695014000000 },
+    //     { value: 2, ts: 1695014001000 },
+    //     { value: 4, ts: 1695014003000 },
+    // ]
+}, 3500);
+```
+
 ### Modes
 
-As mentioned in the [Basic usage](#basic-usage), we can collapse our shards into a partial crystal that can be preserved. We might want to do this if we're processing lots of data, or alternatively, to minimize network transmission.
+As mentioned in the [Basic usage](#basic-usage), we can collapse our shards into a partial crystal that can be preserved. We might want to do this if we're processing lots of data, or alternatively, to minimize network transmission if we'll be sending the whole shard array over the network.
 
 Here's the diagram from before, as a reminder:
 
@@ -219,6 +267,7 @@ There are 4 modes that define how many shards we'll keep:
 -   keepNone
 -   keepCount
 -   keepAfter
+-   keepSince
 
 In the earlier section, we went over the default mode, keepAll. No shards are collapsed, thus the partial crystal is always identical to our initial state. The next mode, keepNone, is what it sounds like. We don't keep any shards, and the partial crystal is the same as the value you get from `.asCrystal()`.
 
@@ -229,7 +278,7 @@ So, we can break these up into 2 basic categories of modes:
 -   Static
 -   Dynamic
 
-The only dynamic mode is keepAfter.
+The dynamic modes are keepAfter and keepSince.
 
 For the sake of examples, we'll show what you get from keepCount mode and keepAfter, because they do something a little bit more novel than the other two. Let's start with keepCount.
 
@@ -272,7 +321,7 @@ The useAfter mode is passed with a `seek` function. In the seek function, you si
 new Crystalizer({
     ...,
 
-    seek: { type: 'keepFirst', seek: (shard) => { ... } }
+    seek: { type: 'keepAfter', seek: (shard) => { ... } }
 })
 ```
 
@@ -282,11 +331,10 @@ You can implement anything you want here. One use-case would be to keep all shar
 const WEEK = 1000 * 60 * 60 * 24 * 7;
 const now = () => +new Date();
 
-let makeShard = (value) => ({ value, ts: now() });
-
 let crystalizer = new Crystalizer({
     initial: { total: 0 },
     reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    tsKey: 'ts',
     mode: {
         type: 'keepAfter',
         seek: (shard) => now() - shard.ts <= WEEK,
@@ -298,67 +346,21 @@ Now, all shards that are older than 1 week will automatically collapse into the 
 
 In practical applications, we'll want to watch out for how much work the `seek` function is doing since it's executing for each of our shards. In this example, we're creating a new `Date` object, so we would want to do something a little more clever here if we're dealing with large data sets. But, this should serve as a working example.
 
-You might wonder what will happen if the shards are added in out of order. Well, that takes us right to the next section, and we'll revisit this exact example to paint a clearer picture of how this would be implemented.
-
-### Sorting
-
-Sorting is about as straightforward as any other JS array. This let's just revisit the above example, but with a sort function that enables us to utilize the keepAfter mode by timestamp.
+There's a shorter and simpler way to do this, that also doesn't have the above problem. We can use the `keepSince` mode:
 
 ```javascript
+const WEEK = 1000 * 60 * 60 * 24 * 7;
+
 let crystalizer = new Crystalizer({
-    ...
-    mode: {
-        type: 'keepAfter',
-        seek: (shard) => now() - shard.ts <= WEEK,
-    },
-
-    sort: (a, b) => a.ts - b.ts,
-});
-```
-
-That's it, and now we're certain the seek function of our keepAfter mode will do what we intend it to do. During the hardening cycle, the shards will be sorted, the seek function will be run, and every shard that comes before the _first_ shard our seek function returned true for will be collapsed into the partial crystal.
-
-### Time sort
-
-You can do the above a little bit easier by initializing with the `tsKey` parameter:
-
-```javascript
-let crystalizer = new Crystalizer({
-    ...
-    mode: {
-        type: 'keepAfter',
-        seek: (shard) => now() - shard.ts <= WEEK,
-    },
-
+    initial: { total: 0 },
+    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
     tsKey: 'ts',
+    mode: {
+        type: 'keepSince',
+        since: (now) => now - WEEK,
+    },
 });
 ```
-
-This will automatically sort by the `ts` key, like before. As a bonus, all added shards that do not already have the `ts` key will have one added automatically.
-
-```javascript
-const nextValue = 0;
-const adder = () => {
-    nextValue++;
-    let timed = nextValue == 3 ? { ts: 5 } : {};
-    crystalizer = crystalizer.with({ ...timed, value: nextValue });
-
-    setTimeout(adder, 1000);
-};
-adder();
-
-setTimeout(() => {
-    console.log(crystalizer.harden().partialShards);
-    // [
-    //     { value: 3, ts: 5 },
-    //     { value: 1, ts: 1695014000000 },
-    //     { value: 2, ts: 1695014001000 },
-    //     { value: 4, ts: 1695014003000 },
-    // ]
-}, 3500);
-```
-
-_Note_: You cannot specify `tsKey` and a `sort` function at the same time. An error will be thrown if you do this. This may be introduced later on once it's decided what the behavior should be.
 
 ### Pointers
 
@@ -663,16 +665,16 @@ let crystalizer = new Crystalizer({
     reducer,
     tsKey: 'ts',
     mode: {
-        type: 'keepAfter',
-        seek: (shard) => shard.ts >= now() - FIVE_MINUTES,
+        type: 'keepSince',
+        since: (now) => now - FIVE_MINUTES,
     },
 });
 
 let gameTime = now();
 
 export function timeTravelExact(ts) {
+    gameTime = Math.max(ts, now() - FIVE_MINUTES);
     crystalizer = crystalizer.withHeadSeek((shard) => shard.ts >= ts);
-    gameTime = ts;
 }
 
 export function timeTravelRelative(trel) {
@@ -765,11 +767,16 @@ type ModeKeepAfter<Shard> = {
     type: 'keepAfter';
     seek: ShardSeekFn<Shard>;
 };
+type ModeKeepSince = {
+    type: 'keepSince';
+    since: (now: number) => number;
+};
 type Mode<Shard> =
     | ModeKeepAll
     | ModeKeepNone
     | ModeKeepCount
-    | ModeKeepAfter<Shard>;
+    | ModeKeepAfter<Shard>
+    | ModeKeepSince;
 ```
 
 **Opts**
@@ -826,5 +833,5 @@ asCrystal(): Crystal;
 
 ## Planned features
 
--   Dump entire crystalizer state (as well as modes, pointers, etc.) into JSON format, and ability to import the same state from JSON.
--   Time-based mode (short-hand for `keepAfter` mode when using timestamp)
+-   Whole-state import/export as JSON (shards, crystal, modes, pointers, etc.)
+-   More ways to ensure `.withHeadSeek()` found a shard to point to

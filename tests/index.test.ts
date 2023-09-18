@@ -16,7 +16,7 @@ describe('Crystalizer', () => {
     const setup = (opts: object = {}) => {
         return new Crystalizer<
             { total: number },
-            { value: number; id: number; ts?: number }
+            { value: number; id?: number; ts?: number }
         >({
             initial: { total: 0 },
             reducer: (crystal, shard) => ({
@@ -60,6 +60,43 @@ describe('Crystalizer', () => {
             const c = add(setup({ mode: { type: 'keepAfter', seek } }), 10);
 
             testBasicAddedShards(c, 20, 8, 4);
+        });
+        describe('keepSince', () => {
+            let c = setup({
+                initial: { total: 0 },
+                reducer: (c, s) => ({ total: c.total + s.value }),
+                __getTime: () => 110,
+                tsKey: 'ts',
+                mode: {
+                    type: 'keepSince',
+                    since: (t) => t - 10,
+                },
+            });
+
+            c = c
+                .with({ value: 1, ts: 91 })
+                .with({ value: 1, ts: 93 })
+                .with({ value: 1, ts: 95 })
+                .with({ value: 1, ts: 97 })
+                .with({ value: 1, ts: 99 })
+                .with({ value: 1, ts: 101 })
+                .with({ value: 1, ts: 103 })
+                .with({ value: 1, ts: 104 })
+                .harden();
+
+            testBasicAddedShards(c as any as Crystalizer, 8, 3, 5);
+
+            it('throws if in keepSince mode without tsKey', () => {
+                const make = () =>
+                    setup({
+                        mode: {
+                            type: 'keepSince',
+                            since: (t) => t - 10,
+                        },
+                    });
+
+                expect(make).toThrow();
+            });
         });
     });
 

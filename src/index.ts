@@ -15,12 +15,14 @@ type ModeKeepAll = { type: 'keepAll' };
 type ModeKeepNone = { type: 'keepNone' };
 type ModeKeepCount = { type: 'keepCount'; count: number };
 type ModeKeepUntil<Shard> = { type: 'keepAfter'; seek: ShardSeekFn<Shard> };
+type ModeKeepSince = { type: 'keepSince'; since: (now: number) => number };
 
 type Mode<Shard> =
     | ModeKeepAll
     | ModeKeepNone
     | ModeKeepCount
-    | ModeKeepUntil<Shard>;
+    | ModeKeepUntil<Shard>
+    | ModeKeepSince;
 
 type PtrFinderAbsolute = { type: 'absolute'; ptr: number };
 type PtrFinderSeek<Shard> = { type: 'seek'; seek: ShardSeekFn<Shard> };
@@ -64,6 +66,12 @@ export class Crystalizer<
         if (opts.tsKey && opts.sort) {
             throw new Error(
                 `Cannot construct Crystalizer with tsKey and sort simultaneously.`,
+            );
+        }
+
+        if (opts.mode.type == 'keepSince' && !opts.tsKey) {
+            throw new Error(
+                'Crystalizer instantiated in keepSince mode must have a tsKey',
             );
         }
 
@@ -267,6 +275,15 @@ export class Crystalizer<
                     const seek = this.opts.mode.seek;
                     return (
                         shards.length - shards.findIndex((shard) => seek(shard))
+                    );
+                case 'keepSince':
+                    const ts = this.opts.mode.since(this.opts.__getTime());
+
+                    return (
+                        shards.length -
+                        shards.findIndex(
+                            (shard) => (shard[this.opts.tsKey] as number) >= ts,
+                        )
                     );
             }
         })();
