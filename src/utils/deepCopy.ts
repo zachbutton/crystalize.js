@@ -1,6 +1,6 @@
-export default function deepCopy(obj: unknown): unknown {
+export default function deepCopy<T>(obj: T): T {
     if (obj instanceof Array) {
-        return obj.map(deepCopy);
+        return obj.map(deepCopy) as T;
     }
 
     if (obj instanceof Object) {
@@ -9,8 +9,8 @@ export default function deepCopy(obj: unknown): unknown {
             newObj[key] = deepCopy(obj[key]);
         });
 
-        return newObj;
+        return newObj as T;
     }
 
-    return obj;
+    return obj as T;
 }

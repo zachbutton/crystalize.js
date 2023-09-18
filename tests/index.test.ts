@@ -27,19 +27,10 @@ describe('Crystalizer', () => {
     };
 
     const testBasicAddedShards = (c: Crystalizer, cTot, pLen, pTot) => {
-        it('result correct generated values', () => {
+        it('has correct generated values', () => {
             expect(c.harden().asCrystal().total).toBe(cTot);
             expect(c.harden().partialShards.length).toBe(pLen);
             expect(c.harden().partialCrystal.total).toBe(pTot);
-
-            return;
-            let startingShards = (c as any).opts.__newShards;
-            const ptr = (c as any).opts.__ptrFinder.ptr;
-            startingShards =
-                ptr == 0 ? startingShards : startingShards.slice(0, -ptr);
-            expect(c.harden().partialShards).toEqual(
-                pLen == 0 ? [] : startingShards.slice(-pLen),
-            );
         });
     };
 
@@ -112,9 +103,69 @@ describe('Crystalizer', () => {
             c = c.withHeadInc(2);
             testBasicAddedShards(c, 14, 7, 0);
         });
+
+        describe('numeric pointer reset', () => {
+            it('numeric pointer resets when `with` is called', () => {
+                let c = add(setup(), 10);
+                c = c.withHeadAt(-2);
+
+                expect((c as any).opts.__ptrFinder.ptr).toBe(2);
+                c = c.with({ value: 1 });
+                expect((c as any).opts.__ptrFinder.ptr).toBe(0);
+            });
+
+            it('numeric pointer resets when `without` is called', () => {
+                let c = add(setup(), 10);
+                c = c.withHeadAt(-2);
+
+                expect((c as any).opts.__ptrFinder.ptr).toBe(2);
+                c = c.without((s) => s.id == 2);
+                expect((c as any).opts.__ptrFinder.ptr).toBe(0);
+            });
+        });
+
+        describe('withHeadSeek', () => {
+            let c = add(setup({ mode: { type: 'keepCount', count: 3 } }), 20);
+
+            c = c.withHeadSeek((s) => s.id == 15);
+            c = c.harden();
+
+            testBasicAddedShards(c, 32, 3, 26);
+
+            it('has `last` as the shard found by the seek fn', () => {
+                expect(c.last.id).toBe(15);
+            });
+
+            it('maintains itself despite shards being added or removed', () => {
+                c = add(c, 10, 20);
+                c = c.harden();
+
+                expect(c.partialShards.length).toBe(3);
+                expect(c.last.id).toBe(15);
+
+                c = c.without((s) => s.id % 2 == 0);
+                c = c.harden();
+
+                expect(c.partialShards.length).toBe(2); // one of the 3 kept were even
+                expect(c.last.id).toBe(15);
+            });
+
+            it('resets to head 0 if shard does not exist', () => {
+                c = c.without((s) => s.id == 15);
+                c = c.harden();
+
+                const last = c.last;
+
+                c = c.withHeadTop();
+                c = c.harden();
+
+                expect(c.last.id).not.toBe(15);
+                expect(c.last.id).toBe(last.id);
+            });
+        });
     });
 
-    describe('combination', () => {
+    describe('combination mode+pointer', () => {
         describe('withHeadAt', () => {
             let c = add(setup({ mode: { type: 'keepCount', count: 6 } }), 10);
 
@@ -124,14 +175,14 @@ describe('Crystalizer', () => {
 
             c = c.withHeadTop();
             c = add(c, 10, 10);
-            c = c.harden();
+            c = c.harden(); // after harden, ptr < 0 will result in < 6 kept shards
             c = c.withHeadAt(-4);
-            testBasicAddedShards(c, 32, 6, 20);
+            testBasicAddedShards(c, 32, 2, 28);
             c = c.withHeadAt(-8);
-            testBasicAddedShards(c, 24, 6, 12);
+            testBasicAddedShards(c, 28, 0, 28);
 
             c = c.withHeadAt(-1);
-            testBasicAddedShards(c, 38, 6, 26);
+            testBasicAddedShards(c, 38, 5, 28);
         });
     });
 
@@ -212,21 +263,46 @@ describe('Crystalizer', () => {
             ]);
         });
 
+        it('sorts by tsKey', () => {
+            const now = 50;
+            let c = setup({ tsKey: 'ts', __getTime: () => now });
+
+            c = c
+                .with([
+                    { value: 2, id: 0, ts: 10 },
+                    { value: 2, id: 0, ts: 8 },
+                    { value: 2, id: 0, ts: 13 },
+                    { value: 2, id: 0, ts: 11 },
+                    { value: 2, id: 0, ts: 7 },
+                ])
+                .harden();
+
+            expect(c.partialShards).toEqual([
+                { value: 2, id: 0, ts: 7 },
+                { value: 2, id: 0, ts: 8 },
+                { value: 2, id: 0, ts: 10 },
+                { value: 2, id: 0, ts: 11 },
+                { value: 2, id: 0, ts: 13 },
+            ]);
+        });
+
         it('skips if key is already specified', () => {
             const now = 50;
             let c = setup({ tsKey: 'ts', __getTime: () => now });
 
             c = add(c, 2);
             c = c.with({ id: 2, value: 2, ts: 5 });
+            c = c.with({ id: 2, value: 2, ts: 51 });
             c = add(c, 2, 3);
             c = c.harden();
 
             expect(c.partialShards).toEqual([
+                { value: 2, id: 2, ts: 5 },
                 { value: 2, id: 0, ts: now },
                 { value: 2, id: 1, ts: now },
-                { value: 2, id: 2, ts: 5 },
                 { value: 2, id: 3, ts: now },
                 { value: 2, id: 4, ts: now },
+                { value: 2, id: 2, ts: 51 },
             ]);
         });
 
@@ -251,6 +327,4 @@ describe('Crystalizer', () => {
             expect(c1.asCrystal()).toEqual(c2.asCrystal());
         });
     });
-
-    // TODO: Test that using `with` or `without` resets ptr to 0
 });

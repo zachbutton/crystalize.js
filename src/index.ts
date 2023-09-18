@@ -5,8 +5,11 @@ type PlainObject = {
     [key: string]: Primitive | Primitive[] | PlainObject;
 };
 
-type ShardSeekFn<Shard> = (shard: Readonly<Shard>) => boolean;
-type ShardSortFn<Shard> = (a: Readonly<Shard>, b: Readonly<Shard>) => number;
+export type ShardSeekFn<Shard> = (shard: Readonly<Shard>) => boolean;
+export type ShardSortFn<Shard> = (
+    a: Readonly<Shard>,
+    b: Readonly<Shard>,
+) => number;
 
 type ModeKeepAll = { type: 'keepAll' };
 type ModeKeepNone = { type: 'keepNone' };
@@ -24,13 +27,13 @@ type PtrFinderSeek<Shard> = { type: 'seek'; seek: ShardSeekFn<Shard> };
 type PtrFinder<Shard> = PtrFinderAbsolute | PtrFinderSeek<Shard>;
 
 type Opts<Crystal, Shard> = {
-    initial: Readonly<Crystal>;
-    reducer: (crystal: Crystal, shard: Shard) => Crystal;
-    copy?: (obj: unknown) => unknown;
+    initial: Crystal;
+    reducer: (crystal: Readonly<Crystal>, shard: Readonly<Shard>) => Crystal;
+    copy?: <T>(obj: T) => T;
     mode?: Mode<Shard>;
     sort?: ShardSortFn<Shard>;
     tsKey?: string;
-    __newShards?: Readonly<Shard[]>;
+    __newShards?: Shard[];
     __harden?: boolean;
     __ptrFinder?: PtrFinder<Shard>;
     __getTime?: () => number;
@@ -43,15 +46,18 @@ export class Crystalizer<
     private opts: Opts<Crystal, Shard>;
 
     private _generated?: {
-        crystal: Readonly<Crystal>;
-        shards: Readonly<Shard[]>;
-        finalCrystal?: Readonly<Crystal>;
+        crystal: Crystal;
+        shards: Shard[];
+        finalCrystal?: Crystal;
     };
 
     constructor(opts: Opts<Crystal, Shard>) {
         opts = {
             mode: { type: 'keepAll' },
             copy: deepCopy,
+            __newShards: [],
+            __ptrFinder: { type: 'absolute', ptr: 0 },
+            __getTime: () => +new Date(),
             ...opts,
         };
 
@@ -61,10 +67,7 @@ export class Crystalizer<
             );
         }
 
-        opts.initial = opts.copy(opts.initial) as Crystal;
-        opts.__newShards = opts.__newShards || [];
-        opts.__ptrFinder = opts.__ptrFinder || { type: 'absolute', ptr: 0 };
-        opts.__getTime = opts.__getTime || (() => +new Date());
+        opts.initial = opts.copy(opts.initial);
 
         this.opts = opts;
 
@@ -80,7 +83,6 @@ export class Crystalizer<
         // for sake of intuitiveness, negative values move the pointer into the
         // past, while positive values move the pointer into the future.
         return this.buildNew({
-            ...this.opts,
             __ptrFinder: { type: 'absolute', ptr: -ptr },
         });
     }
@@ -106,31 +108,80 @@ export class Crystalizer<
         return this.withHeadAt(-this.opts.__ptrFinder.ptr + inc);
     }
 
-    withHeadSeek() {
-        throw new Error('Not yet implemented');
+    withHeadSeek(seek: ShardSeekFn<Shard>) {
+        return this.buildNew({
+            __ptrFinder: { type: 'seek', seek },
+        });
     }
 
     with(shards: Shard | Shard[]) {
-        shards = this.opts.copy(
-            shards instanceof Array ? shards : [shards],
-        ) as Shard[];
+        shards = this.opts.copy(shards instanceof Array ? shards : [shards]);
 
         if (this.opts.tsKey) {
             const now = this.opts.__getTime();
             shards = shards.map((s) => ({ [this.opts.tsKey]: now, ...s }));
         }
 
+        const ptrReset: PtrFinder<Shard> =
+            this.opts.__ptrFinder.type == 'absolute'
+                ? { type: 'absolute', ptr: 0 }
+                : this.opts.__ptrFinder;
+
         return this.buildNew({
-            ...this.opts,
+            __ptrFinder: ptrReset,
             __newShards: this.pendingShards.concat(shards),
         });
     }
 
     without(seek: ShardSeekFn<Shard>) {
+        const ptrReset: PtrFinder<Shard> =
+            this.opts.__ptrFinder.type == 'absolute'
+                ? { type: 'absolute', ptr: 0 }
+                : this.opts.__ptrFinder;
+
         return this.buildNew({
-            ...this.opts,
+            __ptrFinder: ptrReset,
             __newShards: this.pendingShards.filter((s) => !seek(s)),
         });
+    }
+
+    harden() {
+        if (this.hardened) {
+            return this;
+        }
+
+        return this.buildNew({
+            __harden: true,
+        });
+    }
+
+    get last(): Shard {
+        const shards = this.partialShards;
+
+        return this.opts.copy(shards[shards.length - 1]);
+    }
+
+    get partialCrystal(): Crystal {
+        const crystal: Crystal = this.generated.crystal;
+        return this.opts.copy(crystal);
+    }
+
+    get partialShards(): Shard[] {
+        const shards: Shard[] = this.getShardsLimitedByPtr(
+            this.generated.shards,
+        );
+        return this.opts.copy(shards);
+    }
+
+    asCrystal(): Crystal {
+        if (!this.generated.finalCrystal) {
+            this.generated.finalCrystal = this.reduceInto(
+                this.generated.crystal,
+                this.getShardsLimitedByPtr(this.generated.shards),
+            );
+        }
+
+        return this.opts.copy(this.generated.finalCrystal);
     }
 
     private get pendingShards() {
@@ -141,8 +192,9 @@ export class Crystalizer<
         return this.hardened ? this.generated.crystal : this.opts.initial;
     }
 
-    private buildNew(opts: Opts<Crystal, Shard>) {
+    private buildNew(opts: Partial<Opts<Crystal, Shard>>) {
         const newOpts = {
+            ...this.opts,
             initial: this.pendingCrystal,
             __newShards: this.pendingShards,
             ...opts,
@@ -150,18 +202,17 @@ export class Crystalizer<
         return new Crystalizer<Crystal, Shard>(newOpts);
     }
 
-    private getPtrIndex(shards: Readonly<Shard[]>) {
+    private getPtrIndex(shards: Shard[]) {
         switch (this.opts.__ptrFinder.type) {
             case 'absolute':
                 return this.opts.__ptrFinder.ptr;
             case 'seek':
-                return (
-                    shards.length - shards.findIndex(this.opts.__ptrFinder.seek)
-                );
+                const index = shards.findIndex(this.opts.__ptrFinder.seek);
+                return index == -1 ? 0 : shards.length - index - 1;
         }
     }
 
-    private getShardsLimitedByPtr(shards: Readonly<Shard[]>) {
+    private getShardsLimitedByPtr(shards: Shard[]) {
         const ptr = this.getPtrIndex(shards);
         if (ptr == 0) {
             return shards;
@@ -180,7 +231,7 @@ export class Crystalizer<
         return this._generated;
     }
 
-    private reduceInto(crystal: Crystal, shards: Readonly<Shard[]>): Crystal {
+    private reduceInto(crystal: Crystal, shards: Shard[]): Crystal {
         return shards.reduce(
             (crystal, shard) => this.opts.reducer(crystal, shard),
             crystal,
@@ -193,12 +244,15 @@ export class Crystalizer<
 
     private _harden() {
         let crystal = this.opts.initial;
-        let shards: Shard[] = this.opts.copy(
-            this.pendingShards || [],
-        ) as Shard[];
+        let shards = this.opts.copy(this.pendingShards || []);
 
         if (this.opts.sort) {
             shards.sort(this.opts.sort);
+        }
+
+        if (this.opts.tsKey) {
+            const k = this.opts.tsKey;
+            shards.sort((a, b) => (a[k] as number) - (b[k] as number));
         }
 
         const amountKept = (() => {
@@ -232,45 +286,24 @@ export class Crystalizer<
         }
 
         this._generated = { crystal, shards };
+
+        this.opts.__newShards = [];
+        Object.freeze(this.opts.__newShards);
+        // it's not important to reset __newShards, because it wont be used
+        // by this instance anymore. But let's clear and freeze it just to
+        // ensure it's not being passed along to future instances accidentally
+        // (see this.pendingShards)
+    }
+}
+
+function deepFreeze(obj: unknown): unknown {
+    if (obj instanceof Array) {
+        obj.forEach(deepFreeze);
     }
 
-    harden() {
-        if (this.hardened) {
-            return this;
-        }
-
-        return this.buildNew({
-            ...this.opts,
-            __harden: true,
-        });
+    if (obj instanceof Object) {
+        Object.keys(obj).forEach((key) => deepFreeze(obj[key]));
     }
 
-    get last() {
-        const shards = this.partialShards;
-
-        return this.opts.copy(shards[shards.length - 1]) as Shard;
-    }
-
-    get partialCrystal() {
-        const crystal: Crystal = this.generated.crystal;
-        return this.opts.copy(crystal) as Crystal;
-    }
-
-    get partialShards() {
-        const shards: Readonly<Shard[]> = this.getShardsLimitedByPtr(
-            this.generated.shards,
-        );
-        return this.opts.copy(shards) as Shard[];
-    }
-
-    asCrystal() {
-        if (!this.generated.finalCrystal) {
-            this.generated.finalCrystal = this.reduceInto(
-                this.generated.crystal,
-                this.getShardsLimitedByPtr(this.generated.shards),
-            );
-        }
-
-        return this.opts.copy(this.generated.finalCrystal) as Crystal;
-    }
+    return Object.freeze(obj);
 }
