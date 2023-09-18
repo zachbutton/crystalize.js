@@ -1,4 +1,4 @@
-import { Crystalizer } from '../src/index';
+import Crystalizer from '../src/index';
 
 describe('Crystalizer', () => {
     const add = (

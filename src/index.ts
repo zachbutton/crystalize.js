@@ -28,9 +28,14 @@ type PtrFinderAbsolute = { type: 'absolute'; ptr: number };
 type PtrFinderSeek<Shard> = { type: 'seek'; seek: ShardSeekFn<Shard> };
 type PtrFinder<Shard> = PtrFinderAbsolute | PtrFinderSeek<Shard>;
 
+type CrystalizerReducer<Crystal, Shard> = (
+    crystal: Readonly<Crystal>,
+    shard: Readonly<Shard>,
+) => Crystal;
+
 type Opts<Crystal, Shard> = {
     initial: Crystal;
-    reducer: (crystal: Readonly<Crystal>, shard: Readonly<Shard>) => Crystal;
+    reducer: CrystalizerReducer<Crystal, Shard>;
     copy?: <T>(obj: T) => T;
     mode?: Mode<Shard>;
     sort?: ShardSortFn<Shard>;
@@ -41,7 +46,7 @@ type Opts<Crystal, Shard> = {
     __getTime?: () => number;
 };
 
-export class Crystalizer<
+export default class Crystalizer<
     Crystal extends PlainObject = PlainObject,
     Shard extends PlainObject = Crystal,
 > {
