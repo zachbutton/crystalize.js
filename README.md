@@ -49,7 +49,7 @@ npm i -D crystalize.js
 
 ## Basic usage
 
-#### Initialize
+### Initialize
 
 ```javascript
 import { Crystalizer } from './crystalize.js';
@@ -59,7 +59,7 @@ let crystalizer = new Crystalizer({
 });
 ```
 
-#### Options
+### Options
 
 For now, we'll just explain the required options: `initial` and `reducer`. For the other options, please reference [Advanced usage](#advanced-usage).
 
@@ -72,7 +72,7 @@ new Crystalizer({
 
 All crystalizer's must be initialized with at least these options. The option `initial` is the state your reducer starts with, and `reducer` is the function that defines how shards are reduced into that state.
 
-#### Modify
+### Modify
 
 Crystalizer objects are immutable, so all methods return a new Crystalizer instance instead of modifying the existing one.
 
@@ -86,7 +86,7 @@ crystalizer = crystalizer
     .with({ value: 1 });
 ```
 
-#### Harden
+### Harden
 
 Above, we defined the following changes:
 
@@ -102,7 +102,7 @@ However, these transformations have not taken place yet. We have a new crystaliz
 crystalizer = crystalizer.harden();
 ```
 
-#### Get the data
+### Get the data
 
 Now that we've hardened the crystal, we can access the resulting data. In other words, the result has been _crystalized_.
 
@@ -138,7 +138,7 @@ By default, `N` is infinite. It's configurable, and can also be determined stati
 
 This will be explained in more detail in [Advanced usage](#advanced-usage).
 
-#### Putting it all together
+### Putting it all together
 
 Here's what we did above all in one place, for easy reference:
 
@@ -163,7 +163,7 @@ console.log(crystalizer.partialShards); // [{ value: 2 }, { value: 7 }, { value:
 console.log(crystalizer.asCrystal()); // { total: 10 }
 ```
 
-#### Last
+### Last
 
 You can get the last partial shard just using `.last`. It will be `undefined` if there are no partial shards.
 
@@ -200,7 +200,7 @@ For most of this documentation, JS will be used for readability.
 
 ## Advanced usage
 
-#### Modes
+### Modes
 
 As mentioned in the [Basic usage](#basic-usage), we can collapse our shards into a partial crystal that can be preserved. We might want to do this if we're processing lots of data, or alternatively, to minimize network transmission.
 
@@ -299,7 +299,7 @@ In practical applications, we'll want to watch out for how much work the `seek` 
 
 You might wonder what will happen if the shards are added in out of order. Well, that takes us right to the next section, and we'll revisit this exact example to paint a clearer picture of how this would be implemented.
 
-#### Sorting
+### Sorting
 
 Sorting is about as straightforward as any other JS array. This let's just revisit the above example, but with a sort function that enables us to utilize the keepAfter mode by timestamp.
 
@@ -317,7 +317,7 @@ let crystalizer = new Crystalizer({
 
 That's it, and now we're certain the seek function of our keepAfter mode will do what we intend it to do. During the hardening cycle, the shards will be sorted, the seek function will be run, and every shard that comes before the _first_ shard our seek function returned true for will be collapsed into the partial crystal.
 
-#### Time sort
+### Time sort
 
 You can do the above a little bit easier by initializing with the `tsKey` parameter:
 
@@ -359,7 +359,7 @@ setTimeout(() => {
 
 _Note_: You cannot specify `tsKey` and a `sort` function at the same time. An error will be thrown if you do this. This may be introduced later on once it's decided what the behavior should be.
 
-#### Pointers
+### Pointers
 
 Crystalizers keep an internal pointer. There are a few ways to manipulate the pointer.
 
@@ -647,9 +647,9 @@ Our backend is now quite slim, effectively operating as a simple event store.
 
 ## API reference
 
-#### Types
+### Types
 
-**PlainObject**
+#### PlainObject
 
 ```typescript
 type Primitive = string | number | boolean | null | undefined;
@@ -658,25 +658,25 @@ type PlainObject = {
 };
 ```
 
-**Shard**
+#### Shard
 
 ```typescript
 interface Shard extends PlainObject {}
 ```
 
-**Crystal**
+#### Crystal
 
 ```typescript
 interface Crystal extends PlainObject {}
 ```
 
-**Crystalizer**
+#### Crystalizer
 
 ```typescript
 declare class Crystalizer<Crystal, Shard> {}
 ```
 
-#### Methods
+### Methods
 
 **constructor**
 
