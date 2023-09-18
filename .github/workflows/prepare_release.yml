@@ -1,7 +1,9 @@
-name: Badges
-on: [push]
+name: Prepare release
+on:
+    push:
+        branches: ['main']
 jobs:
-    update_badges:
+    prepare_release:
         runs-on: ubuntu-latest
         steps:
             - name: Check out repository code
@@ -14,3 +16,9 @@ jobs:
               uses: jpb06/jest-badges-action@latest
               with:
                   branches: main
+            - name: Bump and changelog using commitizen
+              uses: commitizen-tools/commitizen-action@0.20.0
+              with:
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  commit: true
+                  push: true
