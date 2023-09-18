@@ -24,7 +24,7 @@ The Crystalizer.js library introduces a structured methodology for data manageme
     -   [Get the data](#get-the-data)
     -   [Putting it all together](#putting-it-all-together)
     -   [Last](#last)
-    *   [Typescript](#typescript)
+    -   [Typescript](#typescript)
 -   [Advanced usage](#advanced-usage)
     -   [Modes](#modes)
     -   [Sorting](#sorting)
@@ -649,7 +649,7 @@ Our backend is now quite slim, effectively operating as a simple event store.
 
 ### Types
 
-#### PlainObject
+**PlainObject**
 
 ```typescript
 type Primitive = string | number | boolean | null | undefined;
@@ -658,99 +658,113 @@ type PlainObject = {
 };
 ```
 
-#### Shard
+**Shard**
 
 ```typescript
 interface Shard extends PlainObject {}
 ```
 
-#### Crystal
+**Crystal**
 
 ```typescript
 interface Crystal extends PlainObject {}
 ```
 
-#### Crystalizer
+**Crystalizer**
 
 ```typescript
 declare class Crystalizer<Crystal, Shard> {}
 ```
 
-### Methods
+**ShardSeekFn**
 
-**constructor**
+```typescript
+type ShardSeekFn<Shard> = (shard: Readonly<Shard>) => boolean;
+```
+
+**ShardSortFn**
+
+```typescript
+type ShardSortFn<Shard> = (a: Readonly<Shard>, b: Readonly<Shard>) => number;
+```
+
+**Mode**
+
+```typescript
+type ModeKeepAll = {
+    type: 'keepAll';
+};
+type ModeKeepNone = {
+    type: 'keepNone';
+};
+type ModeKeepCount = {
+    type: 'keepCount';
+    count: number;
+};
+type ModeKeepAfter<Shard> = {
+    type: 'keepAfter';
+    seek: ShardSeekFn<Shard>;
+};
+type Mode<Shard> =
+    | ModeKeepAll
+    | ModeKeepNone
+    | ModeKeepCount
+    | ModeKeepAfter<Shard>;
+```
+
+**Opts**
+
+```typescript
+type Opts<Crystal, Shard> = {
+    initial: Crystal;
+    reducer: (crystal: Readonly<Crystal>, shard: Readonly<Shard>) => Crystal;
+    mode?: Mode<Shard>;
+    sort?: ShardSortFn<Shard>;
+    tsKey?: string;
+};
+```
+
+### Methods
 
 ```typescript
 constructor(opts: Opts<Crystal, Shard>);
-```
 
-**withHeadAt**
-
-```typescript
+// Set's head to exact position and returns a new Crystal
 withHeadAt(ptr: number): Crystalizer<Crystal, Shard>;
-```
 
-**withHeadTop**
-
-```typescript
+// Set's head to 0 and returns a new Crystal
 withHeadTop(): Crystalizer<Crystal, Shard>;
-```
 
-**withHeadInc**
-
-```typescript
+// Increments numeric head by specified value and returns a new Crystal
 withHeadInc(inc: number): Crystalizer<Crystal, Shard>;
-```
 
-**withHeadSeek**
-
-```typescript
+// Sets head to dynamically seek via ShardSeekFn and returns a new Crystal
 withHeadSeek(seek: ShardSeekFn<Shard>): Crystalizer<Crystal, Shard>;
-```
 
-**with**
-
-```typescript
+// Returns a new Crystal with additional shards
 with(shards: Shard | Shard[]): Crystalizer<Crystal, Shard>;
-```
 
-**without**
-
-```typescript
+// Returns a new Crystal without Shards that match in the ShardSeekFn
 without(seek: ShardSeekFn<Shard>): Crystalizer<Crystal, Shard>;
-```
 
-**harden**
-
-```typescript
+// Returns a hardened Crystal
 harden(): Crystalizer<Crystal, Shard>;
-```
 
-**get last**
-
-```typescript
+// Throws on non-hardened crystal. Returns the last partial shard
 get last(): Shard;
-```
 
-**get partialCrystal**
-
-```typescript
+// Throws on non-hardened crystalizers. Returns the partial crystal
 get partialCrystal(): Crystal;
-```
 
-**get partialShards**
-
-```typescript
+// Throws on non-hardened crystalizers. Returns the partial shards
 get partialShards(): Shard[];
-```
 
-**asCrystal**
-
-```typescript
+// Throws on non-hardened crystalizers. Returns the partial shards
+// reduced into the partial crystal
 asCrystal(): Crystal;
 ```
 
 ## Planned features
 
 -   Dump entire crystalizer state (as well as modes, pointers, etc.) into JSON format, and ability to import the same state from JSON.
--   When a `tsKey` parameter exists, apply timestamps to all shards that do not already have a value of that key. Introduce a new mode that just checks timestamps, which is just a QOL improvement on the includeAfter mode. Automatically sort by that timestep, with user-supplied sort being a tie-breaker.
+-   Time-based mode (short-hand for `keepAfter` mode when using timestamp)
