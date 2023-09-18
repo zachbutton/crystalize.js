@@ -23,10 +23,12 @@ The Crystalizer.js library introduces a structured methodology for data manageme
     -   [Harden](#harden)
     -   [Get the data](#get-the-data)
     -   [Putting it all together](#putting-it-all-together)
+    -   [Last](#last)
     *   [Typescript](#typescript)
 -   [Advanced usage](#advanced-usage)
     -   [Modes](#modes)
     -   [Sorting](#sorting)
+    -   [Time sort](#time-sort)
     -   [Pointers](#pointers)
 -   [Examples](#examples)
     -   [Application state](#application-state)
@@ -159,6 +161,14 @@ crystalizer = crystalizer.harden();
 console.log(crystalizer.partialCrystal); // { total: 0 }
 console.log(crystalizer.partialShards); // [{ value: 2 }, { value: 7 }, { value: 1 }]
 console.log(crystalizer.asCrystal()); // { total: 10 }
+```
+
+#### Last
+
+You can get the last partial shard just using `.last`. It will be `undefined` if there are no partial shards.
+
+```
+console.log(crystalizer.last); // { value: 1 }
 ```
 
 ### Typescript
@@ -307,15 +317,60 @@ let crystalizer = new Crystalizer({
 
 That's it, and now we're certain the seek function of our keepAfter mode will do what we intend it to do. During the hardening cycle, the shards will be sorted, the seek function will be run, and every shard that comes before the _first_ shard our seek function returned true for will be collapsed into the partial crystal.
 
+#### Time sort
+
+You can do the above a little bit easier by initializing with the `tsKey` parameter:
+
+```javascript
+let crystalizer = new Crystalizer({
+    ...
+    mode: {
+        type: 'keepAfter',
+        seek: (shard) => now() - shard.ts <= WEEK,
+    },
+
+    tsKey: 'ts',
+});
+```
+
+This will automatically sort by the `ts` key, like before. As a bonus, all added shards that do not already have the `ts` key will have one added automatically.
+
+```javascript
+const nextValue = 0;
+const adder = () => {
+    nextValue++;
+    let timed = nextValue == 3 ? { ts: 5 } : {};
+    crystalizer = crystalizer.with({ ...timed, value: nextValue });
+
+    setTimeout(adder, 1000);
+};
+adder();
+
+setTimeout(() => {
+    console.log(crystalizer.harden().partialShards);
+    // [
+    //     { value: 3, ts: 5 },
+    //     { value: 1, ts: 1695014000000 },
+    //     { value: 2, ts: 1695014001000 },
+    //     { value: 4, ts: 1695014003000 },
+    // ]
+}, 3500);
+```
+
+_Note_: You cannot specify `tsKey` and a `sort` function at the same time. An error will be thrown if you do this. This may be introduced later on once it's decided what the behavior should be.
+
 #### Pointers
 
 Crystalizers keep an internal pointer. There are a few ways to manipulate the pointer.
 
--   withHeadAt
--   withHeadInc
--   withHeadTop
+-   withHeadAt (numeric)
+-   withHeadInc (numeric)
+-   withHeadTop (numeric)
+-   withHeadSeek (dynamic)
 
 There are lots of potential use cases, most notably being an undo/redo feature. You could utilize `withHeadInc` to undo or redo, or `withHeadAt` if you have an undo menu that lets you select a particular stage in an undo list.
+
+Let's look at the numeric pointer first: withHeadAt, withHeadInc, and withHeadTop.
 
 ```javascript
 // undo
@@ -337,7 +392,58 @@ When you call `.harden()`, **only** the shards up to the pointer will be include
 
 The shards _beyond_ the crystal are effectively non-existent unless you move the pointer after them.
 
-Using the `.with()` or `.without()` methods will reset the pointer back to 0, with all shards beyond the old pointer lost to the void of `/dev/null`.
+Using the `.with()` or `.without()` methods will reset numeric pointers back to 0, with all shards beyond the old pointer lost to the void of `/dev/null`.
+
+You may sometimes want to preserve your selection of a specific shard, even after calling `.with()` or `.without()`. Let's look at the dynamic pointer, withHeadSeek:
+
+```javascript
+let crystalizer = new Crystalizer({
+    ...
+});
+
+crystalizer = crystalizer
+    .with({ id: 1000 })
+    .with({ id: 1234 })
+    .with({ id: 2000 })
+    .harden();
+
+console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }, { id: 2000 }]
+
+crystalizer = crystalizer.withHeadSeek(s => s.id == 1234);
+
+console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }]
+
+// dynamic pointer will persist when shards are added or removed
+crystalizer = crystalizer.with({ id: 3000 }).harden();
+
+console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }]
+
+crystalizer = crystalizer.withHeadTop();
+console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }, { id: 2000 }, { id: 3000 }]
+```
+
+Although you cannot make numeric pointers "sticky" the way you can with dynamic pointers, you can use them together with `.last` to achieve a similar result.
+
+```javascript
+crystalizer = crystalizer.withHeadInc(-1);
+crystalizer = crystalizer.withHeadSeek((s) => s.id == crystalizer.last.id);
+```
+
+Now, the pointer will always seek out the shard with the unique identifier `id`.
+
+Note that if the seek function _does not_ find a matching shard, it will behave as though the pointer is at index 0. An error will not be thrown, because this would break the chaining model and create a frustrating API. In some cases, you might want to ensure you have the right pointer. Here's one way you can do that.
+
+```javascript
+const desiredId = 1234;
+
+crystalizer = crystalizer.withHeadSeek((s) => s.id == desiredId);
+
+if (crystalizer.last.id == desiredId) {
+    // ... do stuff
+}
+```
+
+**TBD**: In future versions, there might be something like a `.withHeadStrict()` method that will throw if the shard was not found. This is part of the future API that is still in the planning stage.
 
 ## Examples
 
