@@ -1,9 +1,8 @@
-name: Prepare release
-on:
-    push:
-        branches: ['main']
+name: Release
+on: workflow_dispatch
+
 jobs:
-    prepare_release:
+    release:
         runs-on: ubuntu-latest
         steps:
             - name: Check out repository code
@@ -12,30 +11,32 @@ jobs:
                   fetch-depth: 0
                   ref: main
                   token: ${{ secrets.GIT_ACCESS_TOKEN }}
-            - name: Check if we already released
-              run: |
-                  if git log -1 --pretty=%B | grep -qE "^chore\(release\)"; then
-                      echo "ALREADY_RELEASED=true" >> "$GITHUB_ENV"
-                      echo "Already released, other steps should cancel"
-                  fi
             - name: Deps
-              if: env.ALREADY_RELEASED != 'true'
               run: npm ci
             - name: Tests
-              if: env.ALREADY_RELEASED != 'true'
               run: npm run test:coverage
             - name: Generating coverage badges
-              if: env.ALREADY_RELEASED != 'true'
               uses: jpb06/jest-badges-action@latest
               with:
                   branches: main
                   no-commit: true
             - name: Bump and changelog using commitizen
-              if: env.ALREADY_RELEASED != 'true'
               run: |
                   git add badges
-                  git config --local user.email "github-actions@github.com"
-                  git config --local user.name "github-actions"
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                   npm run version:bump
                   git push -f
                   git push --tags
+            - name: Publish to NPM
+              run: npm publish
+              env:
+                  NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+            - name: GitHub release
+              uses: softprops/action-gh-release@v1
+              with:
+                  draft: false
+                  body_path: CHANGELOG.md
+                  name: ${{ steps.version.outputs.version }}
+                  tag_name: ${{ github.ref }}
+                  token: ${{ github.token }}
