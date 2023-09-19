@@ -43,5 +43,5 @@ jobs:
               with:
                   draft: false
                   body_path: CHANGELOG.md
-                  name: env.TAG_NAME
-                  tag_name: env.TAG_NAME
+                  name: ${{env.TAG_NAME}}
+                  tag_name: ${{env.TAG_NAME}}
