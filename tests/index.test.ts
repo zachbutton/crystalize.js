@@ -2,7 +2,7 @@ import Crystalizer from '../src/index';
 
 describe('Crystalizer', () => {
     const add = (
-        crystalizer: Crystalizer<any>,
+        crystalizer: Crystalizer<any, any>,
         qty: number,
         startingId: number = 0,
     ) => {
@@ -462,6 +462,101 @@ describe('Crystalizer', () => {
             expect(c1.partialCrystal).toEqual(c2.partialCrystal);
             expect(c1.partialShards).toEqual(c2.partialShards);
             expect(c1.asCrystal()).toEqual(c2.asCrystal());
+        });
+    });
+
+    describe('Maker', () => {
+        const maker = Crystalizer.Maker<
+            { total: number },
+            { value: number; id?: number; ts?: number }
+        >({
+            mode: { type: 'keepCount', count: 5 },
+            reducer: (c, s) => ({ total: c.total + s.value }),
+            initial: { total: 0 },
+        });
+
+        let c = maker.make();
+
+        c = add(c, 10);
+
+        testBasicAddedShards(c as any as Crystalizer, 20, 5, 10);
+    });
+
+    describe('import/export', () => {
+        const maker = Crystalizer.Maker<
+            { total: number },
+            { value: number; id?: number; ts?: number }
+        >({
+            mode: { type: 'keepCount', count: 5 },
+            reducer: (c, s) => ({ total: c.total + s.value }),
+            initial: { total: 0 },
+        });
+
+        describe('toJSON', () => {
+            it('generates partialCrystal and partialShards as JSON', () => {
+                let json = add(maker.make(), 10).withHeadAt(-1).toJSON();
+
+                let state = JSON.parse(json);
+
+                expect(state).toEqual({
+                    crystal: { total: 8 },
+                    shards: [
+                        { id: 4, value: 2 },
+                        { id: 5, value: 2 },
+                        { id: 6, value: 2 },
+                        { id: 7, value: 2 },
+                        { id: 8, value: 2 },
+                    ],
+                });
+            });
+        });
+
+        describe('fromJSON', () => {
+            it('generates crystalizer from JSON', () => {
+                const obj = {
+                    crystal: { total: 8 },
+                    shards: [
+                        { id: 4, value: 2 },
+                        { id: 5, value: 2 },
+                        { id: 6, value: 2 },
+                        { id: 7, value: 2 },
+                        { id: 8, value: 2 },
+                    ],
+                };
+
+                const json = JSON.stringify(obj);
+
+                let c = maker.fromJSON(json);
+
+                expect(c.partialCrystal).toEqual(obj.crystal);
+                expect(c.partialShards).toEqual(obj.shards);
+            });
+        });
+
+        describe('import/export symmetry', () => {
+            it('produces same result after multiple import/export cycles', () => {
+                const obj = {
+                    crystal: { total: 8 },
+                    shards: [
+                        { id: 4, value: 2 },
+                        { id: 5, value: 2 },
+                        { id: 6, value: 2 },
+                        { id: 7, value: 2 },
+                        { id: 8, value: 2 },
+                    ],
+                };
+
+                let newJson: string;
+                let json = JSON.stringify(obj);
+
+                for (let i = 0; i < 3; i++) {
+                    newJson = maker.fromJSON(json).toJSON();
+
+                    expect(json).toEqual(newJson);
+
+                    json = newJson;
+                }
+            });
         });
     });
 });

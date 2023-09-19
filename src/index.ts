@@ -11,45 +11,43 @@ export type ShardSortFn<Shard> = (
     b: Readonly<Shard>,
 ) => number;
 
-type ModeKeepAll = { type: 'keepAll' };
-type ModeKeepNone = { type: 'keepNone' };
-type ModeKeepCount = { type: 'keepCount'; count: number };
-// TODO: Come up with a better name for keepAfter
-type ModeKeepUntil<Shard> = { type: 'keepAfter'; seek: ShardSeekFn<Shard> };
-type ModeKeepSince = { type: 'keepSince'; since: (now: number) => number };
-type ModeKeepMin<Shard> = { type: 'keepMin'; modes: Mode<Shard>[] };
-type ModeKeepMax<Shard> = { type: 'keepMax'; modes: Mode<Shard>[] };
-
 type Mode<Shard> =
-    | ModeKeepAll
-    | ModeKeepNone
-    | ModeKeepCount
-    | ModeKeepUntil<Shard>
-    | ModeKeepSince
-    | ModeKeepMin<Shard>
-    | ModeKeepMax<Shard>;
+    | { type: 'keepAll' }
+    | { type: 'keepNone' }
+    | { type: 'keepCount'; count: number }
+    | { type: 'keepAfter'; seek: ShardSeekFn<Shard> }
+    | { type: 'keepSince'; since: (now: number) => number }
+    | { type: 'keepMin'; modes: Mode<Shard>[] }
+    | { type: 'keepMax'; modes: Mode<Shard>[] };
 
-type PtrFinderAbsolute = { type: 'absolute'; ptr: number };
-type PtrFinderSeek<Shard> = { type: 'seek'; seek: ShardSeekFn<Shard> };
-type PtrFinder<Shard> = PtrFinderAbsolute | PtrFinderSeek<Shard>;
+type PtrFinder<Shard> =
+    | { type: 'absolute'; ptr: number }
+    | { type: 'seek'; seek: ShardSeekFn<Shard> };
 
 type CrystalizerReducer<Crystal, Shard> = (
     crystal: Readonly<Crystal>,
     shard: Readonly<Shard>,
 ) => Crystal;
 
-type Opts<Crystal, Shard> = {
+type UserOpts<Crystal, Shard> = {
     initial: Crystal;
     reducer: CrystalizerReducer<Crystal, Shard>;
-    copy?: <T>(obj: T) => T;
     mode?: Mode<Shard>;
     sort?: ShardSortFn<Shard>;
     tsKey?: string;
+};
+
+type InternalOpts<Shard> = {
+    copy?: <T>(obj: T) => T;
     __newShards?: Shard[];
     __harden?: boolean;
     __ptrFinder?: PtrFinder<Shard>;
     __getTime?: () => number;
 };
+
+interface Opts<Crystal, Shard>
+    extends UserOpts<Crystal, Shard>,
+        InternalOpts<Shard> {}
 
 export default class Crystalizer<
     Crystal extends PlainObject = PlainObject,
@@ -63,14 +61,14 @@ export default class Crystalizer<
         finalCrystal?: Crystal;
     };
 
-    constructor(opts: Opts<Crystal, Shard>) {
-        opts = {
+    constructor(_opts: UserOpts<Crystal, Shard> | Opts<Crystal, Shard>) {
+        let opts: Opts<Crystal, Shard> = {
             mode: { type: 'keepAll' },
             copy: deepCopy,
             __newShards: [],
             __ptrFinder: { type: 'absolute', ptr: 0 },
             __getTime: () => +new Date(),
-            ...opts,
+            ..._opts,
         };
 
         if (opts.tsKey && opts.sort) {
@@ -87,6 +85,57 @@ export default class Crystalizer<
             this._harden();
             this.opts.__harden = false;
         }
+    }
+
+    public static Maker<
+        Crystal extends PlainObject = PlainObject,
+        Shard extends PlainObject = Crystal,
+    >(opts: UserOpts<Crystal, Shard>) {
+        return {
+            make: () => new Crystalizer<Crystal, Shard>(opts),
+            fromJSON(json: string) {
+                let state: { crystal: Crystal; shards: Shard[] };
+
+                try {
+                    state = JSON.parse(json);
+
+                    if (!(state.crystal instanceof Object)) {
+                        throw new Error(
+                            'JSON missing `crystal` or of wrong type',
+                        );
+                    }
+                    if (!(state.shards instanceof Array)) {
+                        throw new Error(
+                            'JSON missing `shards` or of wrong type',
+                        );
+                    }
+                } catch (e) {
+                    throw new Error(
+                        'Crystalizer.toJSON expected JSON of form { crystal: {}, shards: [] }. ' +
+                            'Got: `' +
+                            json +
+                            '`. Error: ' +
+                            e,
+                    );
+                }
+
+                const c = new Crystalizer<Crystal, Shard>({
+                    ...opts,
+                    initial: state.crystal,
+                });
+
+                return c.with(state.shards).harden();
+            },
+        };
+    }
+
+    toJSON() {
+        let hardened = this.harden();
+
+        return JSON.stringify({
+            crystal: hardened.partialCrystal,
+            shards: hardened.partialShards,
+        });
     }
 
     withHeadAt(ptr: number) {
