@@ -11,21 +11,24 @@ jobs:
                   fetch-depth: 0
                   ref: main
                   token: ${{ secrets.GIT_ACCESS_TOKEN }}
-            - name: Deps
-              run: npm ci
-            - name: Tests
-              run: npm run test:coverage
+            - uses: actions/setup-node@v3
+              with:
+                  node-version: 16
+                  registry-url: https://registry.npmjs.org/
+            - run: npm ci
+            - run: npm run test:coverage
+            - run: NODE_ENV=production npm run build
             - name: Generating coverage badges
               uses: jpb06/jest-badges-action@latest
               with:
                   branches: main
                   no-commit: true
-            - name: Bump and changelog using commitizen
+            - run: git add badges
+            - run: npm run version:bump
+            - name: Push to GitHub
               run: |
-                  git add badges
                   git config user.name "github-actions[bot]"
                   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-                  npm run version:bump
                   git push -f
                   git push --tags
             - name: Publish to NPM
