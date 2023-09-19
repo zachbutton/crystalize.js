@@ -15,6 +15,10 @@ jobs:
               with:
                   node-version: 16
                   registry-url: https://registry.npmjs.org/
+            - name: Configure git
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             - run: npm ci
             - run: npm run test:coverage
             - run: NODE_ENV=production npm run build
@@ -27,8 +31,6 @@ jobs:
             - run: npm run version:bump
             - name: Push to GitHub
               run: |
-                  git config user.name "github-actions[bot]"
-                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                   git push -f
                   git push --tags
             - name: Publish to NPM
