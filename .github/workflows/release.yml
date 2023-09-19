@@ -33,6 +33,7 @@ jobs:
               run: |
                   git push -f
                   git push --tags
+                  echo "TAG_NAME=$(git describe)" >> "$GITHUB_ENV"
             - name: Publish to NPM
               run: npm publish
               env:
@@ -42,6 +43,5 @@ jobs:
               with:
                   draft: false
                   body_path: CHANGELOG.md
-                  name: ${{ steps.version.outputs.version }}
-                  tag_name: ${{ github.ref }}
-                  token: ${{ github.token }}
+                  name: env.TAG_NAME
+                  tag_name: env.TAG_NAME
