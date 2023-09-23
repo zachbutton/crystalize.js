@@ -1,562 +1,655 @@
-import Crystalizer from '../src/index';
+import Crystalizer, { ShardSeekFn, Opts, Keep } from '../src/index';
+
+type Crystal = { total: number };
+type Shard = { id: number; value: number };
+
+const TS_KEY = 'ts';
+
+const makeShards = (count, firstId = 0): Shard[] =>
+    Array(count)
+        .fill(null)
+        .map((_, i) => ({
+            value: 2,
+            id: i + firstId + 1,
+        }));
+
+const makeIncer = () => {
+    let i = 0;
+    return () => i++;
+};
+
+const withRecordedCrst = (
+    opts: Partial<Opts<Crystal, Shard>>,
+    onCall: (
+        crystalizer: Crystalizer<Crystal, Shard>,
+        name: string,
+        ...args: any
+    ) => void,
+) => {
+    let crst = new Crystalizer<Crystal, Shard>({
+        initial: { total: 0 },
+        reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
+        __getTime: makeIncer(),
+        ...opts,
+    });
+
+    const recordFn = (name: string) => {
+        const fn = crst[name];
+        crst[name] = (...args: unknown[]) => {
+            crst = fn.call(crst, ...args);
+            applyRecorders(crst);
+            onCall(crst, name, args);
+            return crst;
+        };
+    };
+
+    const applyRecorders = (crst: Crystalizer<Crystal, Shard>) => {
+        recordFn('with');
+        recordFn('without');
+        recordFn('leave');
+        recordFn('focus');
+    };
+
+    applyRecorders(crst);
+
+    return () => crst;
+};
+
+const simulateCall = (state, opts, fn, args) => {
+    let [p1, p2, ...pRest] = args;
+    switch (fn) {
+        case 'with': {
+            if (opts.tsKey) {
+                p1 = p1.map((s) => ({
+                    ...s,
+                    [opts.tsKey]: state.now(),
+                }));
+            }
+            if (opts.map) {
+                p1 = p1.map(opts.map);
+            }
+            const limit = state.ptr === 0 ? Infinity : -state.ptr;
+            let newShards = state.shards.slice(0, limit).concat(p1);
+            return {
+                ...state,
+                shards: newShards,
+                ptr: 0,
+            };
+        }
+        case 'without': {
+            const limit = state.ptr === 0 ? Infinity : -state.ptr;
+            return {
+                ...state,
+                shards: state.shards.slice(0, limit).filter((s) => !p1(s)),
+                ptr: 0,
+            };
+        }
+        case 'leave': {
+            return {
+                ...state,
+                ptr: Math.max(0, p1 instanceof Function ? p1(state.ptr) : p1),
+                focus: null,
+            };
+        }
+        case 'focus': {
+            return {
+                ...state,
+                focus: p1,
+                ptr: 0,
+            };
+        }
+    }
+};
+
+const getOptsKeep = (shards: Shard[], keep: Keep<Shard>) => {
+    if (!keep) {
+        return Infinity;
+    }
+
+    const [type, param] = keep;
+
+    switch (type) {
+        case 'count': {
+            return param;
+        }
+        case 'none': {
+            return 0;
+        }
+        case 'first': {
+            const index = shards.findIndex(param);
+            return shards.length - index;
+        }
+        case 'min': {
+            return Math.min(...param.map((keep) => getOptsKeep(shards, keep)));
+        }
+        case 'max': {
+            return Math.max(...param.map((keep) => getOptsKeep(shards, keep)));
+        }
+    }
+
+    return Infinity;
+};
+
+const testScenario = (
+    _opts: Opts<Crystal, Shard>,
+    fn: (c: Crystalizer<Crystal, Shard>) => void,
+) => {
+    const getCrst = withRecordedCrst(_opts, (crst, fn, args) => {
+        state = simulateCall(state, getOpts(), fn, args);
+
+        const actual = crst.take();
+        const expected = generateResult(state.takeCount);
+
+        it('generates correct crystal|shard|old', () => {
+            //console.log('\n\n\n\n ACTUAL', actual, 'EXPECTED', expected);
+            expect(actual).toEqual(expected);
+        });
+    });
+
+    const getOpts = () => (getCrst() as any).opts;
+
+    let state = {
+        crystal: getOpts().initial,
+        shards: [],
+        ptr: 0,
+        focus: null,
+        takeCount: undefined,
+        now: makeIncer(),
+    };
+
+    const generateResult = (takeCount?: number) => {
+        takeCount = takeCount === undefined ? Infinity : takeCount;
+
+        takeCount = Math.min(
+            takeCount,
+            getOptsKeep(state.shards, getOpts().keep),
+        );
+
+        let shards = state.shards.slice();
+
+        if (getOpts().tsKey) {
+            shards.sort(
+                (a, b) => (a[TS_KEY] as number) - (b[TS_KEY] as number),
+            );
+        }
+
+        let ptr: number;
+
+        if (state.focus) {
+            const index = shards.findIndex(state.focus);
+            ptr = index == -1 ? state.ptr : state.shards.length - index - 1;
+        } else {
+            ptr = state.ptr;
+        }
+
+        if (ptr > 0) {
+            shards = shards.slice(0, -ptr);
+        }
+
+        const endDist = takeCount - ptr;
+
+        const toCrystal = shards.splice(0, shards.length - endDist);
+
+        const old = toCrystal.reduce(getOpts().reduce, getOpts().initial);
+        const crystal = shards.reduce(getOpts().reduce, old);
+
+        return [crystal, shards, old];
+    };
+
+    fn(getCrst());
+};
 
 describe('Crystalizer', () => {
-    const add = (
-        crystalizer: Crystalizer<any, any>,
-        qty: number,
-        startingId: number = 0,
-    ) => {
-        const newShards = Array(qty)
-            .fill(0)
-            .map((_, i) => ({ value: 2, id: startingId + i }));
-
-        return crystalizer.with(newShards);
-    };
-
-    const setup = (opts: object = {}) => {
-        return new Crystalizer<
-            { total: number },
-            { value: number; id?: number; ts?: number }
-        >({
-            initial: { total: 0 },
-            reducer: (crystal, shard) => ({
-                total: crystal.total + shard.value,
-            }),
-            ...opts,
-        });
-    };
-
-    const testBasicAddedShards = (c: Crystalizer, cTot, pLen, pTot) => {
-        it('has correct generated values', () => {
-            expect(c.harden().asCrystal().total).toBe(cTot);
-            expect(c.harden().partialShards.length).toBe(pLen);
-            expect(c.harden().partialCrystal.total).toBe(pTot);
-        });
-    };
-
-    describe('modes', () => {
-        it('defaults to keepAll', () => {
-            expect((setup() as unknown as any).opts.mode.type).toBe('keepAll');
-        });
-
-        describe('keepAll', () => {
-            const c = add(setup({ mode: { type: 'keepAll' } }), 10);
-
-            testBasicAddedShards(c, 20, 10, 0);
-        });
-
-        describe('keepNone', () => {
-            const c = add(setup({ mode: { type: 'keepNone' } }), 10);
-
-            testBasicAddedShards(c, 20, 0, 20);
-        });
-        describe('keepCount', () => {
-            const c = add(setup({ mode: { type: 'keepCount', count: 5 } }), 10);
-
-            testBasicAddedShards(c, 20, 5, 10);
-        });
-        describe('keepAfter', () => {
-            const seek = (shard: any) => shard.id == 2;
-            const c = add(setup({ mode: { type: 'keepAfter', seek } }), 10);
-
-            testBasicAddedShards(c, 20, 8, 4);
-        });
-        describe('keepSince', () => {
-            let c = setup({
-                initial: { total: 0 },
-                reducer: (c, s) => ({ total: c.total + s.value }),
-                __getTime: () => 110,
-                tsKey: 'ts',
-                mode: {
-                    type: 'keepSince',
-                    since: (t) => t - 10,
-                },
+    const testChainMethods = (name, opts) => {
+        describe('#with basic' + (name ? ` :: ${name}` : ''), () => {
+            testScenario(opts, (c) => {
+                c = c.with(makeShards(10));
             });
 
-            c = c
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 93 })
-                .with({ value: 1, ts: 95 })
-                .with({ value: 1, ts: 97 })
-                .with({ value: 1, ts: 99 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 103 })
-                .with({ value: 1, ts: 104 })
-                .harden();
-
-            testBasicAddedShards(c as any as Crystalizer, 8, 3, 5);
-
-            it('throws during harden if in keepSince mode without tsKey', () => {
-                const make = () =>
-                    setup({
-                        mode: {
-                            type: 'keepSince',
-                            since: (t) => t - 10,
-                        },
-                    }).harden();
-
-                expect(make).toThrow();
-            });
-        });
-
-        describe('keepMin', () => {
-            let cInitial = setup({
-                initial: { total: 0 },
-                reducer: (c, s) => ({ total: c.total + s.value }),
-                __getTime: () => 110,
-                tsKey: 'ts',
-                mode: {
-                    type: 'keepMin',
-                    modes: [
-                        {
-                            type: 'keepSince',
-                            since: (t) => t - 10,
-                        },
-                        {
-                            type: 'keepCount',
-                            count: 5,
-                        },
-                    ],
-                },
+            testScenario(opts, (c) => {
+                c.with(makeShards(20))
+                    .without((s) => s.id == 4)
+                    .with(makeShards(2));
             });
 
-            let c;
-
-            c = cInitial
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 103 })
-                .with({ value: 1, ts: 104 })
-                .harden();
-
-            testBasicAddedShards(c, 8, 3, 5);
-
-            c = cInitial
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 103 })
-                .with({ value: 1, ts: 104 })
-                .harden();
-
-            testBasicAddedShards(c, 8, 5, 3);
-        });
-
-        describe('keepMax', () => {
-            let cInitial = setup({
-                initial: { total: 0 },
-                reducer: (c, s) => ({ total: c.total + s.value }),
-                __getTime: () => 110,
-                tsKey: 'ts',
-                mode: {
-                    type: 'keepMax',
-                    modes: [
-                        {
-                            type: 'keepSince',
-                            since: (t) => t - 10,
-                        },
-                        {
-                            type: 'keepCount',
-                            count: 5,
-                        },
-                    ],
-                },
+            testScenario(opts, (c) => {
+                c.with(makeShards(7));
             });
 
-            let c;
-
-            c = cInitial
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 103 })
-                .with({ value: 1, ts: 104 })
-                .harden();
-
-            testBasicAddedShards(c, 8, 5, 3);
-
-            c = cInitial
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 91 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 101 })
-                .with({ value: 1, ts: 103 })
-                .with({ value: 1, ts: 104 })
-                .harden();
-
-            testBasicAddedShards(c, 8, 6, 2);
-        });
-    });
-
-    describe('pointers', () => {
-        it('defaults to absolute 0', () => {
-            expect((setup() as unknown as any).opts.__ptrFinder).toEqual({
-                type: 'absolute',
-                ptr: 0,
+            testScenario(opts, (c) => {
+                c.with(makeShards(10));
             });
-        });
 
-        describe('withHeadTop', () => {
-            it('resets it to absolute 0', () => {
-                let c = add(setup(), 10).withHeadAt(-2).withHeadTop();
+            testScenario(opts, (c) => {
+                c.with(makeShards(7));
+            });
 
-                expect((c as unknown as any).opts.__ptrFinder).toEqual({
-                    type: 'absolute',
-                    ptr: 0,
+            describe('added timestamp shards get sorted correctly', () => {
+                testScenario(opts, (c) => {
+                    c.with(makeShards(10))
+                        .with([
+                            { id: 102, value: 3, [TS_KEY]: 2 },
+                            { id: 105, value: 3, [TS_KEY]: 103 },
+                            { id: 103, value: 3, [TS_KEY]: 101 },
+                            { id: 100, value: 3, [TS_KEY]: 0 },
+                            { id: 104, value: 3, [TS_KEY]: 102 },
+                            { id: 101, value: 3, [TS_KEY]: 1 },
+                        ] as unknown as Shard[])
+                        .with(makeShards(10));
+                });
+            });
+
+            describe('#leave', () => {
+                testScenario(opts, (c) => {
+                    c.with(makeShards(10)).leave(1);
+                });
+
+                testScenario(opts, (c) => {
+                    c.with(makeShards(20)).leave(7);
+                });
+
+                testScenario(opts, (c) => {
+                    c.with(makeShards(10)).leave(1);
+                });
+
+                testScenario(opts, (c) => {
+                    c.with(makeShards(20)).leave(7);
+                });
+
+                testScenario(opts, (c) => {
+                    c.with(makeShards(20))
+                        .leave(10)
+                        .leave((n) => n - 4);
+                });
+
+                testScenario(opts, (c) => {
+                    c.with(makeShards(20))
+                        .leave((n) => n + 4)
+                        .leave(10);
+                });
+
+                // leaving high number should not break
+                testScenario(opts, (c) => {
+                    c.with(makeShards(20)).leave(1e100);
+                });
+
+                // leaving low negative number should not break
+                testScenario(opts, (c) => {
+                    c.with(makeShards(20)).leave(-1e100);
+                });
+
+                describe('#with destroys shards beyond pointer', () => {
+                    testScenario(opts, (c) => {
+                        c.with(makeShards(20)).leave(7).with(makeShards(1));
+                    });
+
+                    testScenario(opts, (c) => {
+                        c.with(makeShards(20))
+                            .leave(19)
+                            .with(makeShards(1, 10));
+                    });
+                });
+            });
+
+            describe('#focus', () => {
+                testScenario(opts, (c) => {
+                    c.with(makeShards(10)).focus((s) => s.id == 3);
+                });
+
+                describe('#with preserves itself and shards', () => {
+                    testScenario(opts, (c) => {
+                        c = c
+                            .with(makeShards(10))
+                            .focus((s) => s.id == 7)
+                            .with(makeShards(10, 10));
+
+                        c.leave(-1);
+                    });
                 });
             });
         });
+    };
 
-        describe('withHeadAt', () => {
-            let c = add(setup(), 10).withHeadAt(-2);
-            testBasicAddedShards(c, 16, 8, 0);
+    testChainMethods('defaults', {});
 
-            c = c.withHeadAt(-3);
-            testBasicAddedShards(c, 14, 7, 0);
-
-            c = c.withHeadAt(-1);
-            testBasicAddedShards(c, 18, 9, 0);
-        });
-
-        describe('withHeadInc', () => {
-            let c = add(setup(), 10).withHeadInc(-2);
-            testBasicAddedShards(c, 16, 8, 0);
-
-            c = c.withHeadInc(-3);
-            testBasicAddedShards(c, 10, 5, 0);
-
-            c = c.withHeadInc(2);
-            testBasicAddedShards(c, 14, 7, 0);
-        });
-
-        describe('numeric pointer reset', () => {
-            it('numeric pointer resets when `with` is called', () => {
-                let c = add(setup(), 10);
-                c = c.withHeadAt(-2);
-
-                expect((c as any).opts.__ptrFinder.ptr).toBe(2);
-                c = c.with({ value: 1 });
-                expect((c as any).opts.__ptrFinder.ptr).toBe(0);
-            });
-
-            it('numeric pointer resets when `without` is called', () => {
-                let c = add(setup(), 10);
-                c = c.withHeadAt(-2);
-
-                expect((c as any).opts.__ptrFinder.ptr).toBe(2);
-                c = c.without((s) => s.id == 2);
-                expect((c as any).opts.__ptrFinder.ptr).toBe(0);
-            });
-        });
-
-        describe('withHeadSeek', () => {
-            let c = add(setup({ mode: { type: 'keepCount', count: 3 } }), 20);
-
-            c = c.withHeadSeek((s) => s.id == 15);
-            c = c.harden();
-
-            testBasicAddedShards(c, 32, 3, 26);
-
-            it('has `last` as the shard found by the seek fn', () => {
-                expect(c.last.id).toBe(15);
-            });
-
-            it('maintains itself despite shards being added or removed', () => {
-                c = add(c, 10, 20);
-                c = c.harden();
-
-                expect(c.partialShards.length).toBe(3);
-                expect(c.last.id).toBe(15);
-
-                c = c.without((s) => s.id % 2 == 0);
-                c = c.harden();
-
-                expect(c.partialShards.length).toBe(2); // one of the 3 kept were even
-                expect(c.last.id).toBe(15);
-            });
-
-            it('resets to head 0 if shard does not exist', () => {
-                c = c.without((s) => s.id == 15);
-                c = c.harden();
-
-                const last = c.last;
-
-                c = c.withHeadTop();
-                c = c.harden();
-
-                expect(c.last.id).not.toBe(15);
-                expect(c.last.id).toBe(last.id);
-            });
-        });
+    testChainMethods('map', {
+        map: (shard) => ({ ...shard, newKey: 'k_' + shard.id }),
     });
 
-    describe('combination mode+pointer', () => {
-        describe('withHeadAt', () => {
-            let c = add(setup({ mode: { type: 'keepCount', count: 6 } }), 10);
-
-            // cTot, pLen, pTot
-            c = c.withHeadAt(-2);
-            testBasicAddedShards(c, 16, 6, 4);
-
-            c = c.withHeadTop();
-            c = add(c, 10, 10);
-            c = c.harden(); // after harden, ptr < 0 will result in < 6 kept shards
-            c = c.withHeadAt(-4);
-            testBasicAddedShards(c, 32, 2, 28);
-            c = c.withHeadAt(-8);
-            testBasicAddedShards(c, 28, 0, 28);
-
-            c = c.withHeadAt(-1);
-            testBasicAddedShards(c, 38, 5, 28);
-        });
+    testChainMethods('tsKey', {
+        tsKey: TS_KEY,
     });
 
-    describe('without', () => {
-        it('removes shards', () => {
-            let c = setup();
+    testChainMethods('keep => all', { keep: ['all'] });
+    testChainMethods('keep => none', { keep: ['none'] });
 
-            c = add(c, 5);
-            c = add(c, 5);
-            c = add(c, 5);
-            c = add(c, 5);
-            c = add(c, 5);
+    testChainMethods('keep => count:5', { keep: ['count', 5] });
+    testChainMethods('keep => count:10', { keep: ['count', 10] });
+    testChainMethods('keep => count:20', { keep: ['count', 20] });
 
-            c = c
-                .without((s) => s.id == 0)
-                .harden()
-                .without((s) => s.id == 2)
-                .without((s) => s.id == 5);
+    testChainMethods('keep => .id->3', { keep: ['first', (s) => s.id == 3] });
+    testChainMethods('keep => .id->9', { keep: ['first', (s) => s.id == 9] });
 
-            expect(c.harden().partialShards).toEqual([
-                { value: 2, id: 1 },
-                { value: 2, id: 3 },
-                { value: 2, id: 4 },
-                { value: 2, id: 1 },
-                { value: 2, id: 3 },
-                { value: 2, id: 4 },
-                { value: 2, id: 1 },
-                { value: 2, id: 3 },
-                { value: 2, id: 4 },
-                { value: 2, id: 1 },
-                { value: 2, id: 3 },
-                { value: 2, id: 4 },
-                { value: 2, id: 1 },
-                { value: 2, id: 3 },
-                { value: 2, id: 4 },
-            ]);
-        });
+    testChainMethods('keep => min[count:5, .id->3]', {
+        keep: [
+            'min',
+            [
+                ['count', 3],
+                ['first', (s) => s.id == 3],
+            ],
+        ],
+    });
+    testChainMethods('keep => min[count:5, .id->7]', {
+        keep: [
+            'min',
+            [
+                ['count', 5],
+                ['first', (s) => s.id == 3],
+            ],
+        ],
     });
 
-    describe('sort', () => {
-        it('sorts correctly per supplied sort fn', () => {
-            let c = setup({ sort: (a, b) => a.id - b.id });
-            c = add(c, 3);
-            c = add(c, 3);
-            c = add(c, 3);
-            c = add(c, 3);
-
-            expect(c.harden().partialShards).toEqual([
-                { value: 2, id: 0 },
-                { value: 2, id: 0 },
-                { value: 2, id: 0 },
-                { value: 2, id: 0 },
-
-                { value: 2, id: 1 },
-                { value: 2, id: 1 },
-                { value: 2, id: 1 },
-                { value: 2, id: 1 },
-
-                { value: 2, id: 2 },
-                { value: 2, id: 2 },
-                { value: 2, id: 2 },
-                { value: 2, id: 2 },
-            ]);
-        });
+    testChainMethods('keep => max[count:5, .id->3]', {
+        keep: [
+            'max',
+            [
+                ['count', 3],
+                ['first', (s) => s.id == 3],
+            ],
+        ],
+    });
+    testChainMethods('keep => max[count:5, .id->7]', {
+        keep: [
+            'max',
+            [
+                ['count', 5],
+                ['first', (s) => s.id == 3],
+            ],
+        ],
     });
 
-    describe('tsKey', () => {
-        it("adds keys if they don't exist", () => {
-            const now = 50;
-            let c = setup({ tsKey: 'ts', __getTime: () => now });
-
-            c = add(c, 3).harden();
-
-            expect(c.partialShards).toEqual([
-                { value: 2, id: 0, ts: now },
-                { value: 2, id: 1, ts: now },
-                { value: 2, id: 2, ts: now },
-            ]);
-        });
-
-        it('sorts by tsKey', () => {
-            const now = 50;
-            let c = setup({ tsKey: 'ts', __getTime: () => now });
-
-            c = c
-                .with([
-                    { value: 2, id: 0, ts: 10 },
-                    { value: 2, id: 0, ts: 8 },
-                    { value: 2, id: 0, ts: 13 },
-                    { value: 2, id: 0, ts: 11 },
-                    { value: 2, id: 0, ts: 7 },
-                ])
-                .harden();
-
-            expect(c.partialShards).toEqual([
-                { value: 2, id: 0, ts: 7 },
-                { value: 2, id: 0, ts: 8 },
-                { value: 2, id: 0, ts: 10 },
-                { value: 2, id: 0, ts: 11 },
-                { value: 2, id: 0, ts: 13 },
-            ]);
-        });
-
-        it('skips if key is already specified', () => {
-            const now = 50;
-            let c = setup({ tsKey: 'ts', __getTime: () => now });
-
-            c = add(c, 2);
-            c = c.with({ id: 2, value: 2, ts: 5 });
-            c = c.with({ id: 2, value: 2, ts: 51 });
-            c = add(c, 2, 3);
-            c = c.harden();
-
-            expect(c.partialShards).toEqual([
-                { value: 2, id: 2, ts: 5 },
-                { value: 2, id: 0, ts: now },
-                { value: 2, id: 1, ts: now },
-                { value: 2, id: 3, ts: now },
-                { value: 2, id: 4, ts: now },
-                { value: 2, id: 2, ts: 51 },
-            ]);
-        });
-
-        it('throws if specified alongside sort fn', () => {
-            const make = () => setup({ tsKey: 'ts', sort: () => 1 });
-            expect(make).toThrow();
-        });
-    });
-
-    describe('equivalency', () => {
-        it('Crystalizer made with same crystal, shards, and opts should have matching results', () => {
-            const opts = { mode: { type: 'keepCount', count: 4 } };
-            let c1 = setup(opts);
-
-            c1 = add(c1, 20).harden();
-
-            let c2 = setup({ ...opts, initial: c1.partialCrystal });
-            c2 = c2.with(c1.partialShards.slice()).harden();
-
-            expect(c1.partialCrystal).toEqual(c2.partialCrystal);
-            expect(c1.partialShards).toEqual(c2.partialShards);
-            expect(c1.asCrystal()).toEqual(c2.asCrystal());
-        });
-    });
-
-    describe('Maker', () => {
-        const maker = Crystalizer.Maker<
-            { total: number },
-            { value: number; id?: number; ts?: number }
-        >({
-            mode: { type: 'keepCount', count: 5 },
-            reducer: (c, s) => ({ total: c.total + s.value }),
-            initial: { total: 0 },
-        });
-
-        let c = maker.make();
-
-        c = add(c, 10);
-
-        testBasicAddedShards(c as any as Crystalizer, 20, 5, 10);
-    });
-
-    describe('import/export', () => {
-        const maker = Crystalizer.Maker<
-            { total: number },
-            { value: number; id?: number; ts?: number }
-        >({
-            mode: { type: 'keepCount', count: 5 },
-            reducer: (c, s) => ({ total: c.total + s.value }),
-            initial: { total: 0 },
-        });
-
-        describe('toJSON', () => {
-            it('generates partialCrystal and partialShards as JSON', () => {
-                let json = add(maker.make(), 10).withHeadAt(-1).toJSON();
-
-                let state = JSON.parse(json);
-
-                expect(state).toEqual({
-                    crystal: { total: 8 },
-                    shards: [
-                        { id: 4, value: 2 },
-                        { id: 5, value: 2 },
-                        { id: 6, value: 2 },
-                        { id: 7, value: 2 },
-                        { id: 8, value: 2 },
-                    ],
-                });
-            });
-        });
-
-        describe('fromJSON', () => {
-            it('generates crystalizer from JSON', () => {
-                const obj = {
-                    crystal: { total: 8 },
-                    shards: [
-                        { id: 4, value: 2 },
-                        { id: 5, value: 2 },
-                        { id: 6, value: 2 },
-                        { id: 7, value: 2 },
-                        { id: 8, value: 2 },
-                    ],
-                };
-
-                const json = JSON.stringify(obj);
-
-                let c = maker.fromJSON(json);
-
-                expect(c.partialCrystal).toEqual(obj.crystal);
-                expect(c.partialShards).toEqual(obj.shards);
-            });
-        });
-
-        describe('import/export symmetry', () => {
-            it('produces same result after multiple import/export cycles', () => {
-                const obj = {
-                    crystal: { total: 8 },
-                    shards: [
-                        { id: 4, value: 2 },
-                        { id: 5, value: 2 },
-                        { id: 6, value: 2 },
-                        { id: 7, value: 2 },
-                        { id: 8, value: 2 },
-                    ],
-                };
-
-                let newJson: string;
-                let json = JSON.stringify(obj);
-
-                for (let i = 0; i < 3; i++) {
-                    newJson = maker.fromJSON(json).toJSON();
-
-                    expect(json).toEqual(newJson);
-
-                    json = newJson;
-                }
-            });
-        });
-    });
+    // const testChainMethods = (name, opts, expectResults) => {
+    //     let m = () => make(opts);
+    //     // TODO: For all of these, add more expect's with takeCount != undefined
+    //     describe('#with basic' + (name ? ` -- ${name}` : ''), () => {
+    //         let c: Crystalizer<Crystal, Shard>;
+    //
+    //         c = m().with(makeShards(10));
+    //         expectResults(c, undefined, 20, 10, 0);
+    //
+    //         c = m().with(makeShards(7));
+    //         expectResults(c, undefined, 14, 7, 0);
+    //
+    //         c = m().with(makeShards(10));
+    //         expectResults(c, 3, 20, 3, 14);
+    //
+    //         c = m().with(makeShards(7));
+    //         expectResults(c, 3, 14, 3, 8);
+    //
+    //         describe('#leave', () => {
+    //             c = m().with(makeShards(10)).leave(1);
+    //             expectResults(c, undefined, 18, 9, 0);
+    //
+    //             c = m().with(makeShards(20)).leave(7);
+    //             expectResults(c, undefined, 26, 13, 0);
+    //
+    //             c = m().with(makeShards(10)).leave(1);
+    //             expectResults(c, undefined, 18, 9, 0);
+    //
+    //             c = m().with(makeShards(20)).leave(7);
+    //             expectResults(c, undefined, 26, 13, 0);
+    //
+    //             c = m()
+    //                 .with(makeShards(20))
+    //                 .leave(10)
+    //                 .leave((n) => n - 4);
+    //             expectResults(c, undefined, 28, 14, 0);
+    //
+    //             c = m()
+    //                 .with(makeShards(20))
+    //                 .leave((n) => n + 4)
+    //                 .leave(10);
+    //             expectResults(c, undefined, 20, 10, 0);
+    //
+    //             // leaving high number should not break
+    //             c = m().with(makeShards(20)).leave(1e100);
+    //             expectResults(c, undefined, 0, 0, 0);
+    //
+    //             // leaving low negative number should not break
+    //             c = m().with(makeShards(20)).leave(-1e100);
+    //             expectResults(c, undefined, 40, 20, 0);
+    //
+    //             describe('#with destroys shards beyond pointer', () => {
+    //                 c = m().with(makeShards(20)).leave(7).with(makeShards(1));
+    //                 expectResults(c, undefined, 28, 14, 0);
+    //
+    //                 c = m().with(makeShards(20)).leave(19).with(makeShards(1, 10));
+    //                 expectResults(c, undefined, 4, 2, 0);
+    //             });
+    //         });
+    //
+    //         describe('#focus', () => {
+    //             c = m()
+    //                 .with(makeShards(10))
+    //                 .focus((s) => s.id == 3);
+    //             expectResults(c, undefined, 6, 3, 0);
+    //
+    //             describe('#with preserves itself and shards', () => {
+    //                 c = m()
+    //                     .with(makeShards(10))
+    //                     .focus((s) => s.id == 7)
+    //                     .with(makeShards(10, 10));
+    //                 expectResults(c, undefined, 14, 7, 0);
+    //
+    //                 c = c.leave(0);
+    //                 expectResults(c, undefined, 40, 20, 0);
+    //             });
+    //         });
+    //     });
+    // };
+    //
+    // testChainMethods(
+    //     'defaults',
+    //     {},
+    //     (crystalizer, count, total, sLength, oTotal) => {
+    //         it('#take produces correct values', () => {
+    //             const [crystal, shards, old] = crystalizer.take(count);
+    //
+    //             const expected = [total, sLength, oTotal];
+    //             expect([crystal.total, shards.length, old.total]).toEqual(
+    //                 expected,
+    //             );
+    //         });
+    //     },
+    // );
+    //
+    // testChainMethods(
+    //     'keep => all',
+    //     { keep: ['all'] },
+    //     (crystalizer, count, total, sLength, oTotal) => {
+    //         it('#take produces correct values', () => {
+    //             const [crystal, shards, old] = crystalizer.take(count);
+    //
+    //             const expected = [total, sLength, oTotal];
+    //             expect([crystal.total, shards.length, old.total]).toEqual(
+    //                 expected,
+    //             );
+    //         });
+    //     },
+    // );
+    //
+    // testChainMethods(
+    //     'keep => none',
+    //     { keep: ['none'] },
+    //     (crystalizer, count, total) => {
+    //         it('#take produces correct values', () => {
+    //             const [crystal, shards, old] = crystalizer.take(count);
+    //
+    //             const expected = [total, 0, total];
+    //             expect([crystal.total, shards.length, old.total]).toEqual(
+    //                 expected,
+    //             );
+    //         });
+    //     },
+    // );
+    //
+    // testChainMethods(
+    //     'keep => count',
+    //     { keep: ['count', 2] },
+    //     (crystalizer, count, total, sLength, oTotal) => {
+    //         it('#take produces correct values', () => {
+    //             const [crystal, shards, old] = crystalizer.take(count);
+    //
+    //             const ptr =
+    //                 (crystalizer as any).getPtrIndex(
+    //                     (crystalizer as any).state.shards,
+    //                 ) || 0;
+    //
+    //             count = count === undefined ? Infinity : count;
+    //             const taken = Math.min(count, Math.max(0, 2 - ptr));
+    //
+    //             if (total == 6) {
+    //                 console.log(total, sLength, oTotal, taken);
+    //             }
+    //
+    //             sLength = taken;
+    //             oTotal = total - taken * 2;
+    //
+    //             const expected = [total, sLength, oTotal];
+    //             expect([crystal.total, shards.length, old.total]).toEqual(
+    //                 expected,
+    //             );
+    //         });
+    //     },
+    // );
+    //
+    // testChainMethods(
+    //     'keep => first',
+    //     { keep: ['first', (s) => s.id == 5] },
+    //     (crystalizer, count, total, sLength, oTotal) => {
+    //         // discards 4
+    //         // c = m().with(makeShards(20)).leave(19).with(makeShards(1));
+    //         // expectResults(c, undefined, 4, 2, 0);
+    //         it('#take produces correct values', () => {
+    //             const [crystal, shards, old] = crystalizer.take(count);
+    //
+    //             const ptr =
+    //                 (crystalizer as any).getPtrIndex(
+    //                     (crystalizer as any).state.shards,
+    //                 ) || 0;
+    //
+    //             if (total == 4) {
+    //                 console.log(crystalizer.take(), ptr);
+    //             }
+    //
+    //             const taken =
+    //                 count === undefined
+    //                     ? Math.max(0, sLength - 4)
+    //                     : Math.min(count, 6);
+    //
+    //             sLength = taken;
+    //             oTotal = total - taken * 2;
+    //
+    //             const expected = [total, sLength, oTotal];
+    //             expect([crystal.total, shards.length, old.total]).toEqual(
+    //                 expected,
+    //             );
+    //         });
+    //     },
+    // );
+    //
+    // describe('#map', () => {
+    //     it('maps all shards', () => {
+    //         let c = makeCrystalizer({
+    //             map: (shard) => ({
+    //                 ...shard,
+    //                 someNumber: shard.value * 2 + shard.id,
+    //             }),
+    //         });
+    //
+    //         c = c.with(makeShards(3));
+    //
+    //         const [_, s] = c.take();
+    //
+    //         expect(s).toEqual([
+    //             { id: 1, value: 2, someNumber: 5 },
+    //             { id: 2, value: 2, someNumber: 6 },
+    //             { id: 3, value: 2, someNumber: 7 },
+    //         ]);
+    //     });
+    // });
+    //
+    // describe('#sort', () => {
+    //     it('sorts shards with one or multiple sorts', () => {
+    //         let c;
+    //         let s;
+    //         c = makeCrystalizer({
+    //             sort: ['desc', 'id'],
+    //         });
+    //
+    //         c = c.with(makeShards(3));
+    //
+    //         s = c.take()[1]; // [1] is shards
+    //
+    //         expect(s).toEqual([
+    //             { id: 3, value: 2 },
+    //             { id: 2, value: 2 },
+    //             { id: 1, value: 2 },
+    //         ]);
+    //
+    //         c = makeCrystalizer({
+    //             sort: [
+    //                 ['asc', 'num'],
+    //                 ['desc', 'letter'],
+    //             ],
+    //         });
+    //
+    //         c = c.with([
+    //             { id: 0, value: 2, num: 1, letter: 'a' },
+    //             { id: 0, value: 2, num: 2, letter: 'b' },
+    //             { id: 0, value: 2, num: 1, letter: 'c' },
+    //             { id: 0, value: 2, num: 2, letter: 'd' },
+    //             { id: 0, value: 2, num: 1, letter: 'e' },
+    //             { id: 0, value: 2, num: 2, letter: 'f' },
+    //         ]);
+    //
+    //         [, s] = c.take();
+    //
+    //         expect(s).toEqual([
+    //             { id: 0, value: 2, num: 1, letter: 'e' },
+    //             { id: 0, value: 2, num: 1, letter: 'c' },
+    //             { id: 0, value: 2, num: 1, letter: 'a' },
+    //             { id: 0, value: 2, num: 2, letter: 'f' },
+    //             { id: 0, value: 2, num: 2, letter: 'd' },
+    //             { id: 0, value: 2, num: 2, letter: 'b' },
+    //         ]);
+    //
+    //         c = makeCrystalizer({
+    //             sort: [
+    //                 ['asc', (s) => (s as any).num],
+    //                 ['desc', (s) => (s as any).letter],
+    //             ],
+    //         });
+    //
+    //         c = c.with([
+    //             { id: 0, value: 2, num: 1, letter: 'a' },
+    //             { id: 0, value: 2, num: 2, letter: 'b' },
+    //             { id: 0, value: 2, num: 1, letter: 'c' },
+    //             { id: 0, value: 2, num: 2, letter: 'd' },
+    //             { id: 0, value: 2, num: 1, letter: 'e' },
+    //             { id: 0, value: 2, num: 2, letter: 'f' },
+    //         ]);
+    //
+    //         [, s] = c.take();
+    //
+    //         expect(s).toEqual([
+    //             { id: 0, value: 2, num: 1, letter: 'e' },
+    //             { id: 0, value: 2, num: 1, letter: 'c' },
+    //             { id: 0, value: 2, num: 1, letter: 'a' },
+    //             { id: 0, value: 2, num: 2, letter: 'f' },
+    //             { id: 0, value: 2, num: 2, letter: 'd' },
+    //             { id: 0, value: 2, num: 2, letter: 'b' },
+    //         ]);
+    //     });
+    // });
 });
