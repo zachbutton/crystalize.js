@@ -1,4 +1,8 @@
-import Crystalizer, { ShardSeekFn, Opts, Keep } from '../src/index';
+import Crystalizer, { ShardSeekFn, UserOpts, Keep } from '../src/index';
+
+interface Opts<Crystal, Shard> extends UserOpts<Crystal, Shard> {
+    [any: string]: any;
+}
 
 type Crystal = { total: number };
 type Shard = { id: number; value: number };
