@@ -27,29 +27,20 @@ Here’s how you can use it to empower your projects:
 <!-- toc -->
 
 -   [Installation](#installation)
--   [Basic usage](#basic-usage)
-    -   [Initialize](#initialize)
-    -   [Options](#options)
-    -   [Modify](#modify)
-    -   [Harden](#harden)
-    -   [Get the data](#get-the-data)
-    -   [Putting it all together](#putting-it-all-together)
-    -   [Last](#last)
-    -   [Typescript](#typescript)
--   [Advanced usage](#advanced-usage)
-    -   [Sorting](#sorting)
-    -   [Time sort](#time-sort)
-    -   [Modes](#modes)
-    -   [Pointers](#pointers)
--   [Examples](#examples)
-    -   [Application state](#application-state)
-    -   [Canonicalize frontend & backend state](#canonicalize-frontend--backend-state)
-    -   [Event-driven canonical state](#event-driven-canonical-state)
-    -   [IO-style multiplayer time-travel game](#io-style-multiplayer-time-travel-game)
+-   [Samples](#samples)
+-   [What are 'Crystals' and 'Shards'? And why?](#what-are-crystals-and-shards-and-why)
+-   [Introduction](#introduction)
+    -   [.with() and .take()](#with-and-take)
+    -   [.without()](#without)
+-   [Pointers (undo/redo)](#pointers-undoredo)
+    -   [.leave()](#leave)
+    -   [.focus()](#focus)
+-   [Init options](#init-options)
+    -   [Sort](#sort)
+    -   [Map](#map)
+    -   [Timestamp](#timestamp)
+    -   [Keep](#keep)
 -   [API reference](#api-reference)
-    -   [Types](#types)
-    -   [Methods](#methods)
--   [Planned features](#planned-features)
 
 <!-- tocstop -->
 
@@ -59,799 +50,523 @@ Here’s how you can use it to empower your projects:
 npm i -D crystalize.js
 ```
 
-## Basic usage
-
-### Initialize
-
-```javascript
-import Crystalizer from 'crystalize.js';
-
-let crystalizer = new Crystalizer({
-    // options
-});
-```
-
-### Options
-
-For now, we'll just explain the required options: `initial` and `reducer`. For the other options, please reference [Advanced usage](#advanced-usage).
-
-```javascript
-new Crystalizer({
-    initial: { total: 0 },
-    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
-});
-```
-
-All crystalizer's must be initialized with at least these options. The option `initial` is the state your reducer starts with, and `reducer` is the function that defines how shards are reduced into that state.
-
-### Modify
-
-Crystalizer objects are immutable, so all methods return a new Crystalizer instance instead of modifying the existing one.
-
-You can use the methods `with` or `without` to return a new crystalizer with the shards added or removed.
-
-```javascript
-crystalizer = crystalizer
-    .with({ value: 2 })
-    .with([ { value: 10 }, { value: 7 } ])
-    .without(s => s.value == 10))
-    .with({ value: 1 });
-```
-
-### Harden
-
-Above, we defined the following changes:
-
--   Add a shard with value 2
--   Add a shard with value 10
--   Add a shard with value 7
--   Remove shards with value 10
--   Add a shard with value 1
-
-However, these transformations have not taken place yet. We have a new crystalizer that is prepared to commit those changes. But, the new crystal will not be generated until we harden the crystalizer.
-
-```javascript
-crystalizer = crystalizer.harden();
-```
-
-### Get the data
-
-Now that we've hardened the crystal, we can access the resulting data. In other words, the result has been _crystalized_.
-
-Thus, we are now exposed to the following: `.asCrystal()`, `partialShards`, and `.partialCrystal`.
-
-```javascript
-console.log(crystalizer.partialCrystal); // { total: 0 }
-console.log(crystalizer.partialShards); // [{ value: 2 }, { value: 7 }, { value: 1 }]
-console.log(crystalizer.asCrystal()); // { total: 10 }
-```
-
-We now not only have access to the final result of the reducer, via `asCrystal()`, but also to the shards we added before. This is useful, because it allows us to keep these for data auditing or stepping through event history (think undo/redo behavior), just to name a couple use-cases.
-
-You'll also notice that `.partialCrystal` has the initial state we started with. It's not always the initial state. It's not even just the previous state; You could call `.harden()` as many times as you want to, and it would still be `{ total: 0 }`.
-
-That might be a little bit confusing if we start from `.asCrystal()` and try to understand from there. Instead, let's look at it from a different perspective. Instead of looking at the result from `.asCrystal()` first, let's take a closer look at the partial crystal and partial shards and then work our way back to `.asCrystal()`.
-
-Based on configurable behavior, `.partialCrystal` contains all of the data (shards) that were collapsed into the crystal (therefore lost).
-
-By default, there is no data lost. Therefore, there is nothing to be collapsed into `.partialCrystal`, because we have all the shards in their original form still inside of `.partialShards`.
-
-With default settings, `.partialCrystal` will always be the same as the initial state. But, we can still call `.asCrystal()` to get the final state, without losing the shards we added in before. Cool, huh?
-
-But, you might not want to keep this data forever, depending on your use-case. So, this behavior can be defined, such that `.partialShards` remains a fixed size, or shards that are very old get collapsed into `.partialCrystal`.
-
-To illustrate:
-
-```
-[partial crystal] -> [N quantity of shards] -> [final output via asCrystal()]
-```
-
-By default, `N` is infinite. It's configurable, and can also be determined statically or programmatically (for example, by timestamp).
-
-This will be explained in more detail in [Advanced usage](#advanced-usage).
-
-### Putting it all together
-
-Here's what we did above all in one place, for easy reference:
-
-```javascript
-import Crystalizer from 'crystalize.js';
-
-let crystalizer = new Crystalizer({
-    initial: { total: 0 },
-    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
-});
-
-crystalizer = crystalizer
-    .with({ value: 2 })
-    .with([ { value: 10 }, { value: 7 } ])
-    .without(s => s.value == 10))
-    .with({ value: 1 });
-
-crystalizer = crystalizer.harden();
-
-console.log(crystalizer.partialCrystal); // { total: 0 }
-console.log(crystalizer.partialShards); // [{ value: 2 }, { value: 7 }, { value: 1 }]
-console.log(crystalizer.asCrystal()); // { total: 10 }
-```
-
-### Last
-
-You can get the last partial shard just using `.last`. It will be `undefined` if there are no partial shards.
-
-```
-console.log(crystalizer.last); // { value: 1 }
-```
-
-### Typescript
-
-Since Crystalize.js is written in Typescript, your LSP can make use of the types, and you can constrain which types to be used as Crystals and Shards.
+TypeScript:
 
 ```typescript
-new Crystalizer<Crystal, Shard>({ ... })
+import Crystalizer from 'crystalize.js';
 
-// to match the Basic Usage example above,
-new Crystalizer<{ total: number}, { value: number }>({ ... })
+type Crystal = { total: number };
+type Shard = { id: number; value: number };
 
-// if Crystal and Shard are the same type,
-new Crystalizer<T>({ ... })
-
-// the type can also be inferred based on your initial value
-new Crystalizer({ initial: { total: 0 }})
-
-
-let c = new Crystalizer<{ total: number}, { value: number }>({
-    initial: { total: 'aBadString' }, // TS error
-    reducer: (c, s) => ({ count: c.count + s.value }) // TS error
-});
-
-c = c.with({ count: 1 }); // TS error
-```
-
-For most of this documentation, JS will be used for readability.
-
-## Advanced usage
-
-### Sorting
-
-Sorting is about as straightforward as any other JS array. Suppose you have a `ts` key on each shard:
-
-```javascript
-let crystalizer = new Crystalizer({
-    ...
-    sort: (a, b) => a.ts - b.ts,
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    initial: { total: 0 },
+    reduce: (crystal, shard) => ({
+        ...crystal,
+        total: crystal.total + shard.value,
+    }),
 });
 ```
 
-That's it, and now we're certain the shards will be in the correct order per their timestamp, even if they were added out of order.
+JavaScript:
 
-### Time sort
-
-You can do the above a little bit easier by initializing with the `tsKey` parameter:
-
-```javascript
-let crystalizer = new Crystalizer({
-    ...
-    tsKey: 'ts',
-});
-```
-
-This will automatically sort by the `ts` key, like before. As a bonus, all added shards that do not already have the `ts` key will have one added automatically.
-
-```javascript
-const nextValue = 0;
-const adder = () => {
-    nextValue++;
-    let timed = nextValue == 3 ? { ts: 5 } : {};
-    crystalizer = crystalizer.with({ ...timed, value: nextValue });
-
-    setTimeout(adder, 1000);
-};
-adder();
-
-setTimeout(() => {
-    console.log(crystalizer.harden().partialShards);
-    // [
-    //     { value: 3, ts: 5 },
-    //     { value: 1, ts: 1695014000000 },
-    //     { value: 2, ts: 1695014001000 },
-    //     { value: 4, ts: 1695014003000 },
-    // ]
-}, 3500);
-```
-
-### Modes
-
-As mentioned in the [Basic usage](#basic-usage), we can collapse our shards into a partial crystal that can be preserved. We might want to do this if we're processing lots of data, or alternatively, to minimize network transmission if we'll be sending the whole shard array over the network.
-
-Here's the diagram from before, as a reminder:
-
-```
-[partial crystal] -> [N quantity of shards] -> [final output via asCrystal()]
-```
-
-`N` is what we're talking about here. We can decide how many shards to keep at any given time, with the rest being collapsed into the partial crystal as defined by our reducer function.
-
-There are 4 modes that define how many shards we'll keep:
-
--   keepAll (default)
--   keepNone
--   keepCount
--   keepAfter
--   keepSince
-
-In the earlier section, we went over the default mode, keepAll. No shards are collapsed, thus the partial crystal is always identical to our initial state. The next mode, keepNone, is what it sounds like. We don't keep any shards, and the partial crystal is the same as the value you get from `.asCrystal()`.
-
-Somewhere in between, we have keepCount. But it's essentially similar in that there's a definite, static value of 'N', the number of shards we keep.
-
-So, we can break these up into 2 basic categories of modes:
-
--   Static
--   Dynamic
-
-The dynamic modes are keepAfter and keepSince.
-
-For the sake of examples, we'll show what you get from keepCount mode and keepAfter, because they do something a little bit more novel than the other two. Let's start with keepCount.
-
-Modes are passed into the Crystalizer constructor:
-
-```javascript
-new Crystalizer({
-    ...,
-
-    mode: { type: 'keepCount', count: 2 }
-})
-```
-
-That's it for this one. Revisiting the example we went over in [Basic usage](#basic-usage), here's what we can expect as a result.
-
-```javascript
-// initial value: [{ value: 2 }, { value: 7 }, { value: 1 }]
-
-// with keepCount 2
-console.log(crystalizer.partialCrystal); // { total: 2 }
-console.log(crystalizer.partialShards); // [{ value: 7 }, { value: 1 }]
-console.log(crystalizer.asCrystal()); // { total: 10 }
-
-// with keepCount 1
-console.log(crystalizer.partialCrystal); // { total: 9 }
-console.log(crystalizer.partialShards); // [{ value: 1 }]
-console.log(crystalizer.asCrystal()); // { total: 10 }
-
-// with keepCount 0 (or keepNone)
-console.log(crystalizer.partialCrystal); // { total: 10 }
-console.log(crystalizer.partialShards); // []
-console.log(crystalizer.asCrystal()); // { total: 10 }
-```
-
-Now, let's take a look at keepAfter. This is where it starts to get interesting, and you have a lot of flexibility in how you implement it depending on you use case.
-
-The useAfter mode is passed with a `seek` function. In the seek function, you simply return `true` for the first shard you would like to be kept.
-
-```javascript
-new Crystalizer({
-    ...,
-
-    mode: { type: 'keepAfter', seek: (shard) => { ... } }
-})
-```
-
-You can implement anything you want here. One use-case would be to keep all shards with a time stamp within a certain distance from the current time:
-
-```javascript
-const WEEK = 1000 * 60 * 60 * 24 * 7;
-const now = () => +new Date();
+```typescript
+import Crystalizer from 'crystalize.js';
 
 let crystalizer = new Crystalizer({
     initial: { total: 0 },
-    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
-    tsKey: 'ts',
-    mode: {
-        type: 'keepAfter',
-        seek: (shard) => now() - shard.ts <= WEEK,
-    },
+    reduce: (crystal, shard) => ({
+        ...crystal,
+        total: crystal.total + shard.value,
+    }),
 });
 ```
 
-Now, all shards that are older than 1 week will automatically collapse into the partial crystal during the `harden()` cycle.
+## Samples
 
-In practical applications, we'll want to watch out for how much work the `seek` function is doing since it's executing for each of our shards. In this example, we're creating a new `Date` object, so we would want to do something a little more clever here if we're dealing with large data sets. But, this should serve as a working example.
+-   **TODO** React TODO with undo/redo
+-   **TODO** Small backend with event-driven frontend
+-   **TODO**
 
-There's a shorter and simpler way to do this, that also doesn't have the above problem. We can use the `keepSince` mode:
+## What are 'Crystals' and 'Shards'? And why?
 
-```javascript
-const WEEK = 1000 * 60 * 60 * 24 * 7;
+A crystalizer is, in essence, a reducer. With default settings, you get something that closely resembles state management from things like Redux. Which, of course, is just a normal reduce function used in a particular way. So, you might wonder what the names are for, and why not just use the colloquial names 'actions' and 'reducers'?
 
-let crystalizer = new Crystalizer({
+I'll answer that now, and also give an introduction to Crystalize.js.
+
+Crystalize.js, while it _is_ essentially a reducer, it serves a different purpose. A reducer simply _reduces_ a collection of elements into a single aggregate. But, what Crystalize.js sets out to do is a little bit different. What if you want to keep the collection you passed in? What if you want variable amounts of that collection aggregated, or to be able to rewind to different points of that aggregation to see what it was at that point?
+
+It's fair to consider think of a 'crystal' as an accumulator, and a 'shard' as an element. And that's really what they are. But that doesn't capture the goal of Crystalize.js, either.
+
+They could likewise be called 'state' and 'actions', and that's really what they are, _when Crystalize.js is used in that way_. But, Crystalize.js sets out to serve more use-cases than actions and state.
+
+Thus, the names are chosen to better reflect what Crystalize.js is doing, in verb form. Shards are _crystalized_ into an accumulated state, and the name calls that out to reflect the control and choice you have in how that process takes place.
+
+## Introduction
+
+To illustrate, here's the flow of an action+reducer:
+
+```
+┌────────────┐   ┌───────────┐   ┌───────────┐
+│            │   │           │   │           │
+│   state    ◄───┤  reduce   ◄───┤  action   │
+│            │   │           │   │           │
+└─────▲──────┘   └───────────┘   └───────────┘
+      │
+   readable
+```
+
+You pass actions into the reducer, and then they're aggregated into the accumulator, in this case, your action state. You have your state, which is great, but your action is gone. It cannot be replayed, and timing data about that action is lost, unless you add _additional_ state in order to track that information.
+
+Here's the flow of Crystalize.js:
+
+```
+┌─┬───────────────┬───┬──────────────────┬────┬────────────────┬─┐
+│ │               │   │                  │    │                │ │
+│ │    crystal    ◄───┤  N count shards  ◄────┤  base crystal  │ │
+│ │               │   │                  │    │                │ │
+│ └──────────v────┘   └────────v─────────┘    └───────v────────┘ │
+│            │                 │                      │          │
+│            │ ┌───────────────┘                      │          │
+│            │ │                                      │          │
+│            │ │ ┌────────────────────────────────────┘          │
+│            │ │ │                                               │
+│            │ │ │                                               │
+│            │ │ │          Crystalizer                          │
+└────────────┼─┼─┼────────────────────────────────────▲──────────┘
+             │ │ │                                    │
+             ▼ ▼ ▼                                    │
+           .take(N)                             .with(shards)
+```
+
+You add shards (colloquially, 'actions'), via the `with()` method. You get the state via the `take()` method. But, you can also do more than just get the final state. You also get `N` count of the most recent shards that were added via `with`, and the crystal that is the aggregate of the shards you did _not_ take.
+
+Putting this together, let's say you called `with()` and added 5 shards. Then, you called `.take(3)`. You'll get: 1) The final crystal, 2) The 3 most recently added shards, 3) The crystal that is the aggregate of the 2 oldest shards.
+
+Let's bring that home with a code example:
+
+#### .with() and .take()
+
+```typescript
+let crystalizer = Crystalizer<Crystal, Shard>({
     initial: { total: 0 },
-    reducer: (crystal, shard) => ({ total: crystal.total + shard.value }),
-    tsKey: 'ts',
-    mode: {
-        type: 'keepSince',
-        since: (now) => now - WEEK,
-    },
+    reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
 });
+
+crystalizer = crystalizer.with([
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+]);
+
+const [crystal, shards, base] = crystalizer.take(3);
+
+console.log(crystal); // { total: 5 }
+console.log(shards); // [ { value: 1 }, { value: 1 }, { value: 1 } ]
+console.log(crystal); // { total: 2 }
 ```
 
-### Pointers
+You can call this multiple times in a row without losing any data:
 
-Crystalizers keep an internal pointer. There are a few ways to manipulate the pointer.
+_(calling `take()` with no arguments is equilavent to `take(Infinity)`)_
 
--   withHeadAt (numeric)
--   withHeadInc (numeric)
--   withHeadTop (numeric)
--   withHeadSeek (dynamic)
+```typescript
+crystalizer = crystalizer.with([
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+]);
 
-There are lots of potential use cases, most notably being an undo/redo feature. You could utilize `withHeadInc` to undo or redo, or `withHeadAt` if you have an undo menu that lets you select a particular stage in an undo list.
+function logCrystalN(n?: number) {
+    const [crystal, shards, base] = crystalizer.take(n);
+    console.log(crystal);
+    console.log(shards);
+    console.log(crystal);
+}
 
-Let's look at the numeric pointer first: withHeadAt, withHeadInc, and withHeadTop.
+logCrystalN();
+// { total: 5 }
+// []
+// { total: 0 }
 
-```javascript
+logCrystalN(4);
+// { total: 5 }
+// [{ value: 1}, { value: 1}, { value: 1}, { value: 1}]
+// { total: 1 }
+
+logCrystalN(1);
+// { total: 5 }
+// [{ value: 1}]
+// { total: 4 }
+```
+
+#### .without()
+
+You can also remove shards by using `.without()`. It's just an inverse filter function, so return `true` for a shard to be removed.
+
+```typescript
+crystalizer = crystalizer.with([
+    { value: 1 },
+    { value: 2 },
+    { value: 2 },
+    { value: 3 },
+]);
+
+crystalizer = crystalizer.without((shard) => shard.value == 2);
+
+const [, shards] = crystalizer.take();
+
+console.log(shards); // [{ value: 1 }, { value: 3 }];
+```
+
+## Pointers (undo/redo)
+
+Crystalizer's keep an internal pointer to the L'th most recent shard that we are currently interested in. `L` is the amount of shards _left_ inside the crystalizer, and not counted when calling `take()`.
+
+Ordinarily, the pointer is at `0`. To move it to the next most recent shard, we'd set it to `1`. Third most recent, `2`, and so on.
+
+The simplest way to do this is with the `.leave(L)` method, which we'll look at first. If we know a specific shard which we are interested in, we can do that via the `.focus` method, which we'll look at a little later.
+
+#### .leave()
+
+First, let's add `.leave(L)` to our above diagram:
+
+```
+                      .leave(L)
+                          │
+                          │
+┌─┬───────────────┬───┬───▼──┬─────────────┬────┬────────────────┬─┐
+│ │               │   │  L   │             │    │                │ │
+│ │    crystal    ◄─┐ │shards│  N shards   ◄────┤  base crystal  │ │
+│ │               │ │ │      │             │    │                │ │
+│ └──────────v────┘ │ └──────┴────┬───v────┘    └───────v────────┘ │
+│            │      │             │   │                 │          │
+│            │      └─────────────┘   │                 │          │
+│            │                        │                 │          │
+│            │ ┌──────────────────────┘                 │          │
+│            │ │                                        │          │
+│            │ │ ┌──────────────────────────────────────┘          │
+│            │ │ │                                                 │
+│            │ │ │                                                 │
+│            │ │ │           Crystalizer                           │
+└────────────┼─┼─┼──────────────────────────────────────▲──────────┘
+             │ │ │                                      │
+             ▼ ▼ ▼                                      │
+           .take(N)                               .with(shards)
+```
+
+And some code:
+
+```typescript
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    initial: { total: 0 },
+    reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
+});
+
+crystalizer = crystalizer.with([
+    { id: 1, value: 1 },
+    { id: 2, value: 1 },
+    { id: 3, value: 1 },
+    { id: 4, value: 1 },
+    { id: 5, value: 1 },
+]);
+
+const [crystal, shards, base] = crystalizer.leave(2).take(1);
+
+console.log(crystal); // { total: 3 }
+console.log(shards); // [{ id: 3, value: 1 }]
+console.log(base); // { total: 2 }
+```
+
+Let's step through what`s happening here.
+
+1. We called `.leave(2)`, so shards with id `4` and `5` are excluded from here on.
+2. We called `.take(1)`, so we're only interested in keeping the next most recend shard, id `3`
+3. `crystal` contains the aggregate of all the shards we didn't leave: 1, 2, and 3
+4. `base` contains only the aggregate of the shards we didn't `take`. In this case, that's 1 & 2.
+
+The value `L` is reset if you call `.with()` or `.without`, and all shards that were left will not be part of the next crystalizer object:
+
+```typescript
+let crystalizer2 = crystalizer.leave(4).with([
+    { id: 7, value: 1 },
+    { id: 8, value: 1 },
+]);
+
+const [, shards] = crystalizer2.take();
+
+console.log(shards); // [{ id: 1, value: 1}, { id: 7, value: 1}, { id: 7, value: 1}]
+
+// the old shards aren't lost forever, they're just not part of the new crystalizer
+const [, oldShards] = crystalizer.take();
+
+console.log(oldShards); // { ... ids 1, 2, 3, 4, 5 ... }
+```
+
+You can also call `.leave()` with a callback that takes the current L value and return a new one. This is useful for undo/redo behavior:
+
+```typescript
 // undo
-crystalizer = crystalizer.withHeadInc(-1);
+crystalizer = crystalizer.leave((l) => l + 1);
 
 // redo
-crystalizer = crystalizer.withHeadInc(1);
-
-// user selects 3rd step from most recent
-crystalizer = crystalizer.withHeadAt(-3);
-
-// jump back to current
-crystalizer = crystalizer.withHeadTop();
-// or
-crystalizer = crystalizer.withHeadAt(0);
+crystalizer = crystalizer.leave((l) => l - 1);
 ```
 
-When you call `.harden()`, **only** the shards up to the pointer will be included when generating the values for `.partialCrystal`, `.partialShards`, and `.asCrystal()`.
+#### .focus()
 
-The shards _beyond_ the crystal are effectively non-existent unless you move the pointer after them.
+The `.leave()` method is fine if you either know the historic index you want to backtrack to, or you simple want to increment the current one (undo/redo).
 
-Using the `.with()` or `.without()` methods will reset numeric pointers back to 0, with all shards beyond the old pointer lost to the void of `/dev/null`.
+But, there might be time's where you want to focus on a specific shard and calculate both crystals as though that shard is the most recent shard.
 
-You may sometimes want to preserve your selection of a specific shard, even after calling `.with()` or `.without()`. Let's look at the dynamic pointer, withHeadSeek:
+You can use `.focus()` to accomplish that.
 
-```javascript
-let crystalizer = new Crystalizer({
+```typescript
+crystalizer = crystalizer.with([
+    { id: 1, value: 1 },
+    { id: 2, value: 1 },
+    { id: 3, value: 1 },
+    { id: 4, value: 1 },
+    { id: 5, value: 1 },
+]);
+
+crystalizer = crystalizer.focus((shard) => shard.id == 3);
+```
+
+Note that unlike `.leave()`, the internal pointer is _NOT_ reset when you call `.with()` or `.without()`. Instead, the pointer is updated for each call of `.with()` or `without()' per the seek function.
+
+You can also use `.focus()` for a chronological value, such as `T` timestamp.
+
+```typescript
+crystalizer = crystalizer.focus((shard) => shard.ts >= Date.now() - WEEK);
+```
+
+However, this relies on the shards being sorted by that value. We'll get into sorting as well in the next section, but there's also builtin ways to handle timestamps in Crystalize.js (see #TODO).
+
+## Init options
+
+### Sort
+
+You can initialize a crystalizer with any number of sorts. You can either sort by a property of your shards, or use a function to do something more custom.
+
+_(let's pretend values 1-10 are timestamps that make sense)_
+
+```typescript
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    initial: { total: 0 },
+    reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    sort: [
+        ['asc', 'timestamp'],
+        ['desc', (shard) => shard.value],
+    ],
+});
+
+crystalizer = crystalizer.with([
+    { timestamp: 2, value: 4 },
+    { timestamp: 3, value: 7 },
+    { timestamp: 1, value: 1 },
+    { timestamp: 2, value: 8 },
+    { timestamp: 1, value: 2 },
+    { timestamp: 3, value: 3 },
+]);
+
+// Note that we're leaving 1 shard
+const [crystal, shards, base] = crystalizer.leave(1).take();
+
+console.log(crystal);
+// { total: 22 }
+
+console.log(shards);
+// Note that { timestamp: 3, value: 4 } is missing
+//
+// [{ timestamp: 1, value: 2 },
+//  { timestamp: 1, value: 1 },
+//  { timestamp: 2, value: 8 },
+//  { timestamp: 2, value: 4 },
+//  { timestamp: 3, value: 7 }]
+
+console.log(base);
+// { total: 0 }
+```
+
+If you only need 1 sort, you can just pass it like so:
+
+```typescript
+new Crystalizer<Crystal, Shard>({
     ...
-});
 
-crystalizer = crystalizer
-    .with({ id: 1000 })
-    .with({ id: 1234 })
-    .with({ id: 2000 })
-    .harden();
-
-console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }, { id: 2000 }]
-
-crystalizer = crystalizer.withHeadSeek(s => s.id == 1234);
-
-console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }]
-
-// dynamic pointer will persist when shards are added or removed
-crystalizer = crystalizer.with({ id: 3000 }).harden();
-
-console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }]
-
-crystalizer = crystalizer.withHeadTop();
-console.log(crystalizer.partialShards); // [{ id: 1000 }, { id: 1234 }, { id: 2000 }, { id: 3000 }]
-```
-
-Although you cannot make numeric pointers "sticky" the way you can with dynamic pointers, you can use them together with `.last` to achieve a similar result.
-
-```javascript
-crystalizer = crystalizer.withHeadInc(-1);
-crystalizer = crystalizer.withHeadSeek((s) => s.id == crystalizer.last.id);
-```
-
-Now, the pointer will always seek out the shard with the unique identifier `id`.
-
-Note that if the seek function _does not_ find a matching shard, it will behave as though the pointer is at index 0. An error will not be thrown, because this would break the chaining model and create a frustrating API. In some cases, you might want to ensure you have the right pointer. Here's one way you can do that.
-
-```javascript
-const desiredId = 1234;
-
-crystalizer = crystalizer.withHeadSeek((s) => s.id == desiredId);
-
-if (crystalizer.last.id == desiredId) {
-    // ... do stuff
-}
-```
-
-**TBD**: In future versions, there might be something like a `.withHeadStrict()` method that will throw if the shard was not found. This is part of the future API that is still in the planning stage.
-
-## Examples
-
-### Application state
-
-Suppose you're making a basic incrementer app in React, like the sort you see in tutorials. Except, you want to spice it up with an "Undo" feature.
-
-```javascript
-import Crystalizer from 'crystalizer.js';
-
-import { useState } from 'react';
-
-const baseIncrementerCrystalizer = new Crystalizer({
-    initial: { count: 0 },
-    reducer: (crystal, shard) => ({ count: crystal.count + shard.count }),
-});
-
-const Incrementer = () => {
-    let [inputCount, setInputCount] = useState(0);
-    let [crystalizer, setCrystalizer] = useState(baseIncrementerCrystalizer);
-
-    const inc = (count) => {
-        setCrystalizer(crystalizer.with({ count }));
-    };
-
-    const movePointer = (n) => {
-        setCrystalizer(crystalizer.withHeadInc(n));
-    };
-
-    const currentCount = crystalizer.harden().asCrystal().count;
-
-    return (
-        <div>
-            <span>Count: {currentCount}</span>
-
-            <div>
-                <input
-                    onInput={(e) => setInputCount(Number(e.target.value))}
-                    placeholder="Count"
-                />
-                <button onClick={() => inc(inputCount)}>Increment</button>
-            </div>
-
-            <button onClick={() => movePointer(-1)}>Undo</button>
-            <button onClick={() => movePointer(1)}>Redo</button>
-        </div>
-    );
-};
-```
-
-### Canonicalize frontend & backend state
-
-In today's web development landscape, we often grapple with the challenge of duplicated state: once in the backend and then mirrored on the frontend, leading to redundancy and potential synchronization issues.
-
-There are some approaches to dealing with this problem, from GraphQL which helps to decouple them, all the way to HTMX which virtually eliminates frontend state (although, we can consider the DOM itself to be yet another state on it's own).
-
-Each of these approaches has its use cases. One way we can utilize Crystalize.js is using it to canonicalize our backend and frontend state. We'll still have state in both places, but we won't have to _programatically handle_ both states. It's not technically a single source of truth, but it's a _single source of logic_.
-
-This will be some heavy pseudo code, so get ready.
-
-**Common**
-
-```javascript
-const defaultState = { ... };
-
-export const makeCrystalizer = (initial = defaultState) => new Crystalizer({
-    initial,
-    reducer: (crystal, shard) => {
-        // handle actions here, where it's shared between FE and BE
-    };
+    sort: ['asc', 'timestamp'],
 });
 ```
 
-**Frontend**
+### Map
 
-```javascript
-// State.js
+You might wish to automatically add or change certain keys to every shard. Id`s are a great example of this. You can do so by specifying the `map` option, which takes a simple map function:
 
-import { makeCrystalizer } from '../../Common';
+```typescript
+import { ulid } from 'ulid';
 
-let crystalizer;
-
-const initialState = api.get('/state');
-initialState.then((state) => {
-    crystalizer = makeCrystalizer(state);
-});
-
-export async function dispatch(action) {
-    await initialState;
-
-    // send the plain action to the backend
-    api.post('/event', { data: action });
-
-    // generate a new crystalizer with the action, and harden it
-    crystalizer = crystalizer.with(action).harden();
-
-    // emit the new state to subscribers to consume
-    subscribers.emit(crystalizer.asCrystal());
-}
-```
-
-**Backend**
-
-```javascript
-// Api.js
-
-import { getUserState, setUserState } from '../your/db/utilities';
-import { makeCrystalizer } from '../../Common';
-
-function getUserCrystal(userId) {
-    const state = getUserState(userId);
-
-    return makeCrystalizer(state);
-}
-
-api.get('/state', (req) => {
-    return getUserCrystal(req.jwt.userId).harden().asCrystal();
-});
-
-api.post('/event', (req) => {
-    const crystal = getUserCrystal(req.jwt.userId);
-    const newState = crystal.with(req.body).harden();
-
-    setUserState(req.jwt.userId, newState.asCrystal());
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    initial: { total: 0 },
+    reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    map: (shard) => ({ id: ulid(), ...shard }),
 });
 ```
 
-You might have wondered how, in the backend, we go from `getUserState` straight to constructing a `Crystalizer` intance, which takes an object. This depends on your architecture, and this pattern will work best with non-relational databases such as Mongo, or other databases that are document-driven and allow you to get a simple object.
+Now, all your shards will have a unique id from `ulid` if they didn't already have an id.
 
-For relational databases, we lose the _single source of logic_ here since you would still have to construct the object passed into the Crystalizer.
+### Timestamp
 
-But, that brings us to the next use case:
+We have enough building blocks to ensure every shard has a timestamp, are ordered by those timestamps, and then revisit the `.focus()` example using them.
 
-### Event-driven canonical state
+```typescript
+import { ulid } from 'ulid';
 
-Like before, we're sending single events from the frontend to the backend, and getting the whole state from the backend on load.
-
-However, this time, we're only storing the raw events on the server.
-
-**Common**
-
-```javascript
-const defaultState = { ... };
-
-export const makeCrystalizer = (initial = defaultState) => new Crystalizer({
-    initial,
-    reducer: (crystal, shard) => {
-        // handle actions here, where it's shared between FE and BE
-    };
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    initial: { total: 0 },
+    reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    map: (shard) => ({ id: ulid(), ts: Date.now(), ...shard }),
+    sort: [
+        ['asc', 'ts'],
+        ['desc', 'value'],
+    ],
 });
 ```
 
-**Frontend**
+We can do this much more simply by specifying the `tsKey` option:
 
-```javascript
-// State.js
+```typescript
+import { ulid } from 'ulid';
 
-import { makeCrystalizer } from '../../Common';
-
-let crystalizer;
-
-const initialState = api.get('/state');
-initialState.then((state) => {
-    crystalizer = makeCrystalizer(state);
-});
-
-export async function dispatch(action) {
-    await initialState;
-
-    // send the plain action to the backend
-    api.post('/event', { data: action });
-
-    // generate a new crystalizer with the action, and harden it
-    crystalizer = crystalizer.with(action).harden();
-
-    // emit the new state to subscribers to consume
-    subscribers.emit(crystalizer.asCrystal());
-}
-```
-
-**Backend**
-
-```javascript
-// Api.js
-
-import { getAllUserEvents, addUserEvent } from '../your/db/utilities';
-import { makeCrystalizer } from '../../Common';
-
-api.get('/state', (req) => {
-    const events = getAllUserEvents(userId);
-
-    return makeCrystalizer().with(events).harden().asCrystal();
-});
-
-api.post('/event', (req) => {
-    addUserEvent(req.jwt.userId, req.body);
-});
-```
-
-Our backend is now quite slim, effectively operating as a simple event store.
-
-### IO-style multiplayer time-travel game
-
-Imagine a game that includes time travel. You can time travel up to 5 minutes into the past.
-
-We're going to put the game's state actions of each player into the crystalizer, as shards. Let's set up our crystalizer to always keep the last 5 minutes worth of shards.
-
-```javascript
-import { reducer, defaultState, TICK_DURATION } from './game-loop';
-
-const FIVE_MINUTES = 1000 * 60 * 5;
-const now = () => +new Date();
-
-let crystalizer = new Crystalizer({
-    initial: defaultState,
-    reducer,
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    initial: { total: 0 },
+    reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    map: (shard) => ({ id: ulid(), ...shard }),
+    sort: ['desc', 'value'],
     tsKey: 'ts',
-    mode: {
-        type: 'keepSince',
-        since: (now) => now - FIVE_MINUTES,
-    },
 });
-
-let gameTime = now();
-
-export function timeTravelExact(ts) {
-    gameTime = Math.max(ts, now() - FIVE_MINUTES);
-    crystalizer = crystalizer.withHeadSeek((shard) => shard.ts >= ts);
-}
-
-export function timeTravelRelative(trel) {
-    gameTime = gameTime + trel;
-    timeTravelExact(gameTime);
-}
-
-export function timeTravelPresent() {
-    timeTravelExact(now());
-}
-
-export function tick() {
-    timeTravelRelative(TICK_DURATION);
-}
-
-export function addAction(action) {
-    // Explicitly set `ts` since it may not be present time.
-    // However, this might be called when we receive actions
-    // by other players via the network. So, if it has a timestamp
-    // already, we'll want to keep it.
-    action = { ts: gameTime, ...action };
-
-    crystalizer = crystalizer.with(action);
-}
-
-export function getState() {
-    return crystalizer.harden().asCrystal();
-}
 ```
 
-With the above module, we've created an abstraction around Crystalizer that serves our use case well. We have methods to move to different points in time, as well as a way to add actions, taken by either the local player or remote players, and handle their positions in the timeline correctly. We can get the current state via `getState()`, and we'll get the correct game state at current point in time.
+Now, it's handled for us automatically. Notice that in addition to removing from our `map` call, it's not specified as a sort either. When a timestamp key is specified, shards are automatically sorted by that key first, and then everything else after.
+
+### Keep
+
+Remember that when we call `.take(N)`, we can pass in the value `N` which is the number of shards that are NOT collapsed into the base crystal? That's a mouthfull, so let's bring back our earlier diagram:
+
+```
+┌─┬───────────────┬───┬──────────────────┬────┬────────────────┬─┐
+│ │               │   │                  │    │                │ │
+│ │    crystal    ◄───┤  N count shards  ◄────┤  base crystal  │ │
+│ │               │   │                  │    │                │ │
+│ └──────────v────┘   └────────v─────────┘    └───────v────────┘ │
+│            │                 │                      │          │
+│            │ ┌───────────────┘                      │          │
+│            │ │                                      │          │
+│            │ │ ┌────────────────────────────────────┘          │
+│            │ │ │                                               │
+│            │ │ │                                               │
+│            │ │ │          Crystalizer                          │
+└────────────┼─┼─┼────────────────────────────────────▲──────────┘
+             │ │ │                                    │
+             ▼ ▼ ▼                                    │
+           .take(N)                             .with(shards)
+```
+
+We can set a limit on the `N` value by using the `keep` initialization option. If you recall, the default behavior of `.take()` when passed no arguments is equivalent to `.take(Infinity)`. So, setting a keep option is twofold: 1) We're setting a max value on `N`, and 2) We're setting the default `N` value when `.take()` is called without arguments.
+
+```typescript
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    initial: { total: 0 },
+    reduce: (crystal, shard) => ({ total: crystal.total + shard.value }),
+    keep: ['count', 2],
+});
+
+crystalizer = crystalizer.with([
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+    { value: 1 },
+]);
+
+const [crystal, shards, base] = crystalizer.take();
+
+console.log(crystal); // { value: 5 }
+console.log(shards); // [{ value: 1 }, { value: 1 }]
+console.log(base); // { value: 3 }
+```
+
+Note that we can call `.take()` with a value _less_ than 2, but any value greater than 2 will return the same results as above.
+
+This is very useful if you're dealing with a large number of shards. You can limit it to a specific quantity of shards like the above. Or, you can limit it to a certain range of time, such that old shards are automatically collapsed into the base crystal:
+
+```typescript
+const WEEK = 1000 * 60 * 60 * 24 * 7;
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    ...
+    keep: ['since', WEEK],
+});
+```
+
+Maybe, you'll want to do a mix of both. The `min` and `max` options are your friend here.
+
+```typescript
+const WEEK = 1000 * 60 * 60 * 24 * 7;
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    ...
+    keep: ['min', [
+        ['count', 5000],
+        ['since', WEEK],
+    ]],
+});
+```
+
+This will keep, at most, 5000 shards, or the number of shards that are less than 1 week old, which ever is less. You'll never have more than 5000 shards, nor will you have shards older than 1 week. This is good if you're fine with missing some of that week's shards in some cases.
+
+Maybe you have different requirements, and instead, want to have a full week's shards no matter what, but also don't mind backfilling up to 5000 shards if there's not many that week. You could use `max` for this:
+
+```typescript
+const WEEK = 1000 * 60 * 60 * 24 * 7;
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    ...
+    keep: ['max', [
+        ['count', 5000],
+        ['since', WEEK],
+    ]],
+});
+```
+
+Or, maybe you still want to set a limit of 10,000 total shards:
+
+```typescript
+const WEEK = 1000 * 60 * 60 * 24 * 7;
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    ...
+    keep: ['min', [
+        ['count', 10000],
+        ['max', [
+            ['count', 5000],
+            ['since', WEEK],
+        ]],
+    ]]
+
+});
+```
+
+There is also `all`, which is the default behavior, and `none`, which will make it never keep any shards (crystal and base crystal will always be equivalent in this case).
+
+```typescript
+let crystalizer = new Crystalizer<Crystal, Shard>({
+    ...
+    keep: ['none'],
+    // or
+    keep: ['all'],
+});
+```
 
 ## API reference
 
-### Types
-
-**PlainObject**
-
-```typescript
-type Primitive = string | number | boolean | null | undefined;
-type PlainObject = {
-    [key: string]: Primitive | Primitive[] | PlainObject;
-};
-```
-
-**Shard**
-
-```typescript
-interface Shard extends PlainObject {}
-```
-
-**Crystal**
-
-```typescript
-interface Crystal extends PlainObject {}
-```
-
-**Crystalizer**
-
-```typescript
-declare class Crystalizer<Crystal, Shard> {}
-```
-
-**CrystalizerReducer**
-
-```typescript
-type CrystalizerReducer<Crystal, Shard> = (
-    crystal: Readonly<Crystal>,
-    shard: Readonly<Shard>,
-) => Crystal;
-```
-
-**ShardSeekFn**
-
-```typescript
-type ShardSeekFn<Shard> = (shard: Readonly<Shard>) => boolean;
-```
-
-**ShardSortFn**
-
-```typescript
-type ShardSortFn<Shard> = (a: Readonly<Shard>, b: Readonly<Shard>) => number;
-```
-
-**Mode**
-
-```typescript
-type ModeKeepAll = {
-    type: 'keepAll';
-};
-type ModeKeepNone = {
-    type: 'keepNone';
-};
-type ModeKeepCount = {
-    type: 'keepCount';
-    count: number;
-};
-type ModeKeepAfter<Shard> = {
-    type: 'keepAfter';
-    seek: ShardSeekFn<Shard>;
-};
-type ModeKeepSince = {
-    type: 'keepSince';
-    since: (now: number) => number;
-};
-type Mode<Shard> =
-    | ModeKeepAll
-    | ModeKeepNone
-    | ModeKeepCount
-    | ModeKeepAfter<Shard>
-    | ModeKeepSince;
-```
-
-**Opts**
-
-```typescript
-type Opts<Crystal, Shard> = {
-    initial: Crystal;
-    reducer: CrystalizerReducer<Crystal, Shard>;
-    mode?: Mode<Shard>;
-    sort?: ShardSortFn<Shard>;
-    tsKey?: string;
-};
-```
-
-### Methods
-
-```typescript
-constructor(opts: Opts<Crystal, Shard>);
-
-// Sets head to exact position and returns a new Crystal
-withHeadAt(ptr: number): Crystalizer<Crystal, Shard>;
-
-// Sets head to 0 and returns a new Crystal
-withHeadTop(): Crystalizer<Crystal, Shard>;
-
-// Increments numeric head by specified value and returns a new Crystal
-withHeadInc(inc: number): Crystalizer<Crystal, Shard>;
-
-// Sets head to dynamically seek via ShardSeekFn and returns a new Crystal
-withHeadSeek(seek: ShardSeekFn<Shard>): Crystalizer<Crystal, Shard>;
-
-// Returns a new Crystal with additional shards
-with(shards: Shard | Shard[]): Crystalizer<Crystal, Shard>;
-
-// Returns a new Crystal without Shards that match in the ShardSeekFn
-without(seek: ShardSeekFn<Shard>): Crystalizer<Crystal, Shard>;
-
-// Returns a hardened Crystal
-harden(): Crystalizer<Crystal, Shard>;
-
-// Throws on non-hardened crystal. Returns the last partial shard
-get last(): Shard;
-
-// Throws on non-hardened crystalizers. Returns the partial crystal
-get partialCrystal(): Crystal;
-
-// Throws on non-hardened crystalizers. Returns the partial shards
-get partialShards(): Shard[];
-
-// Throws on non-hardened crystalizers. Returns the partial shards
-// reduced into the partial crystal
-asCrystal(): Crystal;
-```
-
-## Planned features
-
--   Whole-state import/export as JSON (shards, crystal, modes, pointers, etc.)
--   More ways to ensure `.withHeadSeek()` found a shard to point to
+TODO
