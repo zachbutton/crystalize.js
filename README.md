@@ -97,13 +97,13 @@ I'll answer that now, and also give an introduction to Crystalize.js.
 
 ## Introduction
 
-Crystalize.js, while it _is_ essentially a reducer, it serves a different purpose. A reducer simply _reduces_ a collection of elements into a single aggregate. But, what Crystalize.js sets out to do is a little bit different. What if you want to keep the collection you passed in? What if you want variable amounts of that collection aggregated, or to be able to rewind to different points of that aggregation to see what it was at that point?
+Crystalize.js, while it _is_ essentially a reducer, serves a different purpose. A reducer simply _reduces_ a collection of elements into a single aggregate. But, what Crystalize.js sets out to do is a little bit different. What if you want to keep the collection you passed in? What if you want variable amounts of that collection aggregated, or to be able to rewind to different points of that aggregation to see what it was at that point?
 
-It's fair to consider think of a 'crystal' as an accumulator, and a 'shard' as an element. And that's really what they are. But that doesn't capture the goal of Crystalize.js, either.
+It's fair to think of a 'crystal' as an accumulator, and a 'shard' as an element. And that's really what they are. But that doesn't capture the goal of Crystalize.js, either.
 
 They could likewise be called 'state' and 'actions', and that's really what they are, _when Crystalize.js is used in that way_. But, Crystalize.js sets out to serve more use-cases than actions and state.
 
-Thus, the names are chosen to better reflect what Crystalize.js is doing, in verb form. Shards are _crystalized_ into an accumulated state, and the name calls that out to reflect the control and choice you have in how that process takes place.
+Thus, the names are chosen to reflect better what Crystalize.js is doing, in verb form. Shards are _crystalized_ into an accumulated state, and the name calls that out to reflect the control and choice you have in how that process takes place.
 
 To illustrate, here's the flow of an action+reducer:
 
@@ -117,7 +117,7 @@ To illustrate, here's the flow of an action+reducer:
    readable
 ```
 
-You pass actions into the reducer, and then they're aggregated into the accumulator, in this case, your app state. You have your state, which is great, but your action is gone. It cannot be replayed, and timing data about that action is lost, unless you add _additional state_ in order to track that information.
+You pass actions into the reducer, and then they're aggregated into the accumulator, in this case, your app state. You have your state, which is great, but your action is gone. It cannot be replayed, and timing data about that action is lost, unless you add _additional state_ to track that information.
 
 Here's the flow of Crystalize.js:
 
@@ -226,11 +226,11 @@ console.log(shards); // [{ value: 1 }, { value: 3 }];
 
 ## Pointers (undo/redo)
 
-Crystalizer's keep an internal pointer to the L'th most recent shard that we are currently interested in. `L` is the amount of shards _left_ inside the crystalizer, and not counted when calling `take()`.
+Crystalizer's keep an internal pointer to the L'th most recent shard that we are currently interested in. `L` is the number of shards _left_ inside the crystalizer, and not counted when calling `take()`.
 
 Ordinarily, the pointer is at `0`. To move it to the next most recent shard, we'd set it to `1`. Third most recent, `2`, and so on.
 
-The simplest way to do this is with the `.leave(L)` method, which we'll look at first. If we know a specific shard which we are interested in, we can do that via the `.focus` method, which we'll look at a little later.
+The simplest way to do this is with the `.leave(L)` method, which we'll look at first. If we know a specific shard that we are interested in, we can do that via the `.focus` method, which we'll look at a little later.
 
 #### .leave()
 
@@ -452,11 +452,11 @@ let crystalizer = new Crystalizer<Crystal, Shard>({
 });
 ```
 
-Now, it's handled for us automatically. Notice that in addition to removing from our `map` call, it's not specified as a sort either. When a timestamp key is specified, shards are automatically sorted by that key first, and then everything else after.
+Now, it's handled for us automatically. Notice that in addition to removing it from our `map` call, it's not specified as a sort either. When a timestamp key is specified, shards are automatically sorted by that key first, and then everything else after.
 
 ### Keep
 
-Remember that when we call `.take(N)`, we can pass in the value `N` which is the number of shards that are NOT collapsed into the base crystal? That's a mouthfull, so let's bring back our earlier diagram:
+Remember that when we call `.take(N)`, we can pass in the value `N` which is the number of shards that are NOT collapsed into the base crystal. That's a mouthful, so let's bring back our earlier diagram:
 
 ```
 ┌─┬───────────────┬───┬──────────────────┬────┬────────────────┬─┐
