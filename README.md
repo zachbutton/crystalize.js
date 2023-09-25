@@ -9,18 +9,26 @@
 
 # Crystalize.js [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=A%20reducer%20on%20steroids%2C%20but%20if%20reducers%20had%20undo%2Fredo%20and%20time-travel.&url=https://github.com/zachbutton/crystalize.js)
 
-The Crystalize.js library is your magic wand for data wizardry, introducing a methodology for data management: "Crystals" and their foundational building blocks, "Shards". Think of a "Crystal" as an iceberg, immutably capturing the essence of time and tales, representing a culmination of data or states. Imagine "Shards" as the droplets that over time, meld to craft these icebergs. Now imagine that you could turn back the clock, and see the formation of the iceberg at different points in its history.
+Welcome to Crystalize.js, where state management gets a transformative twist. This isn't just another reducer; it's a game-changer that lets you retain, navigate, and selectively aggregate your data.
 
-That is Crystalize.js. It's like a reducer on steroids, but if reducers had undo/redo and time-travel.
+Here, 'crystals' are your final state, 'shards' are the elements you feed in, and—here's the kicker—the 'base crystal' is your initial point, accumulating only the shards you choose to leave behind.
 
-Here’s how you can use it to empower your projects:
+Why does it matter? With .with(), you feed in 'shards'. With .take(), you access your 'crystal', controlling the level of aggregation. The 'base crystal' then, becomes a snapshot of the state without the shards you recently took—offering you unparalleled control over your data's time-traveling journey.
 
-1. 📚 Application State Manager: Using a Crystal as your application state, you get your normal state management, but with super-powers.
-2. 🕰️ Dynamic Time-based State: Turn your user into a time traveler, allowing them to explore the iceberg at any phase in its evolution, in anything from simple undo/redo, or a time-travel-based game.
-3. 🌊 Time-Series Data Analyzer: Just as maritime explorers chart the seas, use this tool to revisit and analyze the stages of your data’s growth at different points.
-4. 📝 Event Sourcing Recorder: Store the state changes triggered by events, not unlike the layers in an iceberg, to understand their influence on the overall structure.
-5. 🔍 Simulation State Monitor: Monitor the gradual shifts and changes, capturing every nuance as your data evolves and grows.
-6. 🛠️ Data Transformation Toolkit: Adjust and refine, much like sculpting the edges and facets to achieve the desired shape and structure.
+Feeling selective? Use .without() to filter out shards. Want to navigate through your state's history? Meet .leave() and .focus(), your time-traveling tools.
+
+Initialization is a breeze with options to sort, map, timestamp, and even set shard retention limits.
+
+So, are you ready to rewrite the rules of state management? Dive into Crystalize.js and discover the future, today!
+
+Here's how to harness the transformative power of Crystalize.js for your projects:
+
+1. _Enhanced State Management_: Use a Crystal as your app's core state. It's like traditional state management, but on steroids.
+2. _Journey Through Time_: Enable users to navigate the progression of your app state—whether for simple undo/redo functions or a time-travel-based gaming experience.
+3. _Chronological Data Exploration_: Like seasoned explorers mapping new territories, journey back to analyze your data at specific moments.
+4. _Event-Driven State Insights_: Like the layers of an iceberg, capture state changes influenced by events, gaining deeper insights into their impact.
+5. _Dynamic State Watcher_: Track subtle shifts and transformations, capturing the essence of your data's evolution.
+   Precision Data Sculpting: Mold and refine your data landscape, crafting it to perfection.
 
 ## Table of contents
 
