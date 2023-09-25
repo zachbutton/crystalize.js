@@ -7,7 +7,7 @@
 [![Package size](https://img.shields.io/bundlephobia/min/crystalize.js)](https://img.shields.io/bundlephobia/min/crystalize.js)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 
-# Crystalize.js
+# Crystalize.js [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=A%20reducer%20on%20steroids%2C%20but%20if%20reducers%20had%20undo%2Fredo%20and%20time-travel.&url=https://github.com/zachbutton/crystalize.js)
 
 The Crystalize.js library is your magic wand for data wizardry, introducing a methodology for data management: "Crystals" and their foundational building blocks, "Shards". Think of a "Crystal" as an iceberg, immutably capturing the essence of time and tales, representing a culmination of data or states. Imagine "Shards" as the droplets that over time, meld to craft these icebergs. Now imagine that you could turn back the clock, and see the formation of the iceberg at different points in its history.
 
