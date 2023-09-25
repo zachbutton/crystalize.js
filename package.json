@@ -1,6 +1,6 @@
 {
     "name": "crystalize.js",
-    "version": "0.1.15",
+    "version": "1.0.0",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "files": [
@@ -21,7 +21,7 @@
         "build": "tsup",
         "build:prod": "NODE_ENV=production tsup",
         "prepare": "husky install",
-        "docs:update": "node docs.js",
+        "docs:update": "node docs.js && typedoc --plugin typedoc-plugin-markdown --excludePrivate src/index.ts",
         "commit": "cz",
         "version:bump": "standard-version"
     },
@@ -37,7 +37,7 @@
     "homepage": "https://github.com/zachbutton/crystalize.js#readme",
     "description": "",
     "devDependencies": {
-        "@types/jest": "^29.5.4",
+        "@types/jest": "^29.5.5",
         "commitizen": "^4.3.0",
         "cz-conventional-changelog": "^3.3.0",
         "husky": "^8.0.3",
@@ -50,6 +50,8 @@
         "ts-jest": "^29.1.1",
         "ts-node": "^10.9.1",
         "tsup": "^7.2.0",
+        "typedoc": "^0.25.1",
+        "typedoc-plugin-markdown": "^3.16.0",
         "typescript": "^5.2.2"
     },
     "lint-staged": {
