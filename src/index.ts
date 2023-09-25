@@ -12,7 +12,7 @@ export type Keep<Shard> =
     | ['none']
     | ['count', number]
     | ['first', ShardSeekFn<Shard>]
-    | ['since', (now: number) => number]
+    | ['since', number]
     | ['min', Keep<Shard>[]]
     | ['max', Keep<Shard>[]];
 
@@ -58,6 +58,8 @@ export default class Crystalizer<
         [count: number]: { crystal: Crystal; shards: Shard[] };
     } = {};
 
+    private sorts: SingleSort<Shard>[];
+
     constructor(_opts: UserOpts<Crystal, Shard> | Opts<Crystal, Shard>) {
         let opts: Opts<Crystal, Shard> = {
             keep: ['all'],
@@ -72,6 +74,20 @@ export default class Crystalizer<
             shards: deepCopy(opts.__newShards),
             crystal: deepCopy(opts.initial),
         };
+
+        if (opts.sort) {
+            const isMultisort = opts.sort[0] instanceof Array;
+
+            this.sorts = (
+                isMultisort ? opts.sort : [opts.sort]
+            ) as SingleSort<Shard>[];
+        } else {
+            this.sorts = [];
+        }
+
+        if (opts.tsKey) {
+            this.sorts.unshift(['asc', opts.tsKey]);
+        }
 
         opts.__ptr = Math.max(0, opts.__ptr);
 
@@ -141,7 +157,7 @@ export default class Crystalizer<
     }
 
     focus(seek: ShardSeekFn<Shard>) {
-        return this.buildNew({ __focus: seek });
+        return this.buildNew({ __focus: seek, __ptr: 0 });
     }
 
     with(shards: Shard | Shard[]) {
@@ -154,8 +170,8 @@ export default class Crystalizer<
                 }
                 if (this.opts.tsKey) {
                     shards[i] = {
-                        ...shards[i],
                         [this.opts.tsKey]: this.opts.__getTime(),
+                        ...shards[i],
                     };
                 }
             }
@@ -163,9 +179,12 @@ export default class Crystalizer<
 
         const limit = this.opts.__ptr == 0 ? Infinity : -this.opts.__ptr;
 
+        const newShards = this.state.shards.slice(0, limit).concat(shards);
+        this.sortMutate(newShards);
+
         return this.buildNew({
             __ptr: 0,
-            __newShards: this.state.shards.slice(0, limit).concat(shards),
+            __newShards: newShards,
         });
     }
 
@@ -261,7 +280,8 @@ export default class Crystalizer<
                         );
                     }
 
-                    const ts = param(this.opts.__getTime());
+                    const pastDistance = param;
+                    const ts = this.opts.__getTime() - pastDistance;
 
                     const index = shards.findIndex(
                         (shard) => (shard[this.opts.tsKey] as number) >= ts,
@@ -288,15 +308,9 @@ export default class Crystalizer<
     }
 
     private sortMutate(shards: Shard[]): void {
-        if (!this.opts.sort || !this.opts.sort.length) {
+        if (!this.sorts.length) {
             return;
         }
-
-        const isMultisort = this.opts.sort[0] instanceof Array;
-
-        const sorts = (
-            isMultisort ? this.opts.sort : [this.opts.sort]
-        ) as SingleSort<Shard>[];
 
         const getSortVal = (
             shard: Shard,
@@ -310,8 +324,8 @@ export default class Crystalizer<
         };
 
         shards.sort((a: Shard, b: Shard) => {
-            for (let i = 0; i < sorts.length; i++) {
-                const [dir, key] = sorts[i];
+            for (let i = 0; i < this.sorts.length; i++) {
+                const [dir, key] = this.sorts[i];
                 const l = dir == 'asc' ? a : b;
                 const r = dir == 'asc' ? b : a;
 
@@ -337,10 +351,6 @@ export default class Crystalizer<
 
         if (!this.takeCache[keepCount]) {
             let { crystal, shards } = deepCopy(this.state);
-
-            if (this.opts.sort) {
-                this.sortMutate(shards);
-            }
 
             const ptr = this.getPtrIndex(shards);
 
