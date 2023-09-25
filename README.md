@@ -13,9 +13,9 @@ Welcome to Crystalize.js, where state management gets a transformative twist. Th
 
 Here, 'crystals' are your final state, 'shards' are the elements you feed in, and—here's the kicker—the 'base crystal' is your initial point, accumulating only the shards you choose to leave behind.
 
-Why does it matter? With .with(), you feed in 'shards'. With .take(), you access your 'crystal', controlling the level of aggregation. The 'base crystal' then, becomes a snapshot of the state without the shards you recently took—offering you unparalleled control over your data's time-traveling journey.
+Why does it matter? With `.with()`, you feed in 'shards'. With `.take()`, you access your 'crystal', controlling the level of aggregation. The 'base crystal' then, becomes a snapshot of the state without the shards you recently took—offering you unparalleled control over your data's time-traveling journey.
 
-Feeling selective? Use .without() to filter out shards. Want to navigate through your state's history? Meet .leave() and .focus(), your time-traveling tools.
+Feeling selective? Use `.without()` to filter out shards. Want to navigate through your state's history? Meet `.leave()` and .`focus()`, your time-traveling tools.
 
 Initialization is a breeze with options to sort, map, timestamp, and even set shard retention limits.
 
@@ -23,11 +23,11 @@ So, are you ready to rewrite the rules of state management? Dive into Crystalize
 
 Here's how to harness the transformative power of Crystalize.js for your projects:
 
-1. _Enhanced State Management_: Use a Crystal as your app's core state. It's like traditional state management, but on steroids.
-2. _Journey Through Time_: Enable users to navigate the progression of your app state—whether for simple undo/redo functions or a time-travel-based gaming experience.
-3. _Chronological Data Exploration_: Like seasoned explorers mapping new territories, journey back to analyze your data at specific moments.
-4. _Event-Driven State Insights_: Like the layers of an iceberg, capture state changes influenced by events, gaining deeper insights into their impact.
-5. _Dynamic State Watcher_: Track subtle shifts and transformations, capturing the essence of your data's evolution.
+1. **Enhanced State Management**: Use a Crystal as your app's core state. It's like traditional state management, but on steroids.
+2. **Journey Through Time**: Enable users to navigate the progression of your app state—whether for simple undo/redo functions or a time-travel-based gaming experience.
+3. **Chronological Data Exploration**: Like seasoned explorers mapping new territories, journey back to analyze your data at specific moments.
+4. **Event-Driven State Insights**: Like the layers of an iceberg, capture state changes influenced by events, gaining deeper insights into their impact.
+5. **Dynamic State Watcher**: Track subtle shifts and transformations, capturing the essence of your data's evolution.
    Precision Data Sculpting: Mold and refine your data landscape, crafting it to perfection.
 
 ## Table of contents
