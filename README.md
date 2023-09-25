@@ -83,15 +83,19 @@ let crystalizer = new Crystalizer({
 
 ## Samples
 
--   **TODO** React TODO with undo/redo
--   **TODO** Small backend with event-driven frontend
--   **TODO**
+Sample apps, as built, will be placed here and linked to `./samples`.
+
+-   **TODO** React TODO app with undo/redo
+-   **TODO** Time-based journal app
+-   **TODO** Thin backend with seamless offline experience
 
 ## What are 'Crystals' and 'Shards'? And why?
 
 A crystalizer is, in essence, a reducer. With default settings, you get something that closely resembles state management from things like Redux. Which, of course, is just a normal reduce function used in a particular way. So, you might wonder what the names are for, and why not just use the colloquial names 'actions' and 'reducers'?
 
 I'll answer that now, and also give an introduction to Crystalize.js.
+
+## Introduction
 
 Crystalize.js, while it _is_ essentially a reducer, it serves a different purpose. A reducer simply _reduces_ a collection of elements into a single aggregate. But, what Crystalize.js sets out to do is a little bit different. What if you want to keep the collection you passed in? What if you want variable amounts of that collection aggregated, or to be able to rewind to different points of that aggregation to see what it was at that point?
 
@@ -100,8 +104,6 @@ It's fair to consider think of a 'crystal' as an accumulator, and a 'shard' as a
 They could likewise be called 'state' and 'actions', and that's really what they are, _when Crystalize.js is used in that way_. But, Crystalize.js sets out to serve more use-cases than actions and state.
 
 Thus, the names are chosen to better reflect what Crystalize.js is doing, in verb form. Shards are _crystalized_ into an accumulated state, and the name calls that out to reflect the control and choice you have in how that process takes place.
-
-## Introduction
 
 To illustrate, here's the flow of an action+reducer:
 
@@ -115,7 +117,7 @@ To illustrate, here's the flow of an action+reducer:
    readable
 ```
 
-You pass actions into the reducer, and then they're aggregated into the accumulator, in this case, your action state. You have your state, which is great, but your action is gone. It cannot be replayed, and timing data about that action is lost, unless you add _additional_ state in order to track that information.
+You pass actions into the reducer, and then they're aggregated into the accumulator, in this case, your app state. You have your state, which is great, but your action is gone. It cannot be replayed, and timing data about that action is lost, unless you add _additional state_ in order to track that information.
 
 Here's the flow of Crystalize.js:
 
@@ -138,9 +140,9 @@ Here's the flow of Crystalize.js:
            .take(N)                             .with(shards)
 ```
 
-You add shards (colloquially, 'actions'), via the `with()` method. You get the state via the `take()` method. But, you can also do more than just get the final state. You also get `N` count of the most recent shards that were added via `with`, and the crystal that is the aggregate of the shards you did _not_ take.
+You add shards (colloquially, 'actions'), via the `.with()` method. You get the state via the `take()` method. But, you can also do more than just get the final state. You also get `N` count of the most recent shards that were added via `.with`, and the crystal that is the aggregate of the shards you did _not_ take.
 
-Putting this together, let's say you called `with()` and added 5 shards. Then, you called `.take(3)`. You'll get: 1) The final crystal, 2) The 3 most recently added shards, 3) The crystal that is the aggregate of the 2 oldest shards.
+Putting this together, let's say you called `.with()` and added 5 shards. Then, you called `.take(3)`. You'll get: 1) The final crystal, 2) The 3 most recently added shards, 3) The crystal that is the aggregate of the 2 oldest shards.
 
 Let's bring that home with a code example:
 
@@ -164,12 +166,12 @@ const [crystal, shards, base] = crystalizer.take(3);
 
 console.log(crystal); // { total: 5 }
 console.log(shards); // [ { value: 1 }, { value: 1 }, { value: 1 } ]
-console.log(crystal); // { total: 2 }
+console.log(base); // { total: 2 }
 ```
 
 You can call this multiple times in a row without losing any data:
 
-_(calling `take()` with no arguments is equilavent to `take(Infinity)`)_
+_(calling `take()` with no arguments is equivalent to `take(Infinity)`)_
 
 ```typescript
 crystalizer = crystalizer.with([
@@ -184,23 +186,23 @@ function logCrystalN(n?: number) {
     const [crystal, shards, base] = crystalizer.take(n);
     console.log(crystal);
     console.log(shards);
-    console.log(crystal);
+    console.log(base);
 }
-
-logCrystalN();
-// { total: 5 }
-// []
-// { total: 0 }
-
-logCrystalN(4);
-// { total: 5 }
-// [{ value: 1}, { value: 1}, { value: 1}, { value: 1}]
-// { total: 1 }
 
 logCrystalN(1);
 // { total: 5 }
-// [{ value: 1}]
+// [{ value: 1 }]
 // { total: 4 }
+
+logCrystalN(4);
+// { total: 5 }
+// [{ value: 1 }, { value: 1 }, { value: 1 }, { value: 1 }]
+// { total: 1 }
+
+logCrystalN();
+// { total: 5 }
+// [{ value: 1 }, { value: 1 }, { value: 1 }, { value: 1 }, { value: 1 }]
+// { total: 0 }
 ```
 
 #### .without()
@@ -286,9 +288,9 @@ Let's step through what`s happening here.
 1. We called `.leave(2)`, so shards with id `4` and `5` are excluded from here on.
 2. We called `.take(1)`, so we're only interested in keeping the next most recend shard, id `3`
 3. `crystal` contains the aggregate of all the shards we didn't leave: 1, 2, and 3
-4. `base` contains only the aggregate of the shards we didn't `take`. In this case, that's 1 & 2.
+4. `base` contains only the aggregate of the shards we didn't take or leave. In this case, that's 1 & 2.
 
-The value `L` is reset if you call `.with()` or `.without`, and all shards that were left will not be part of the next crystalizer object:
+The value `L` is reset if you call `.with()` or `.without()`, and all shards that were left will not be part of the next crystalizer object:
 
 ```typescript
 let crystalizer2 = crystalizer.leave(4).with([
@@ -320,7 +322,7 @@ crystalizer = crystalizer.leave((l) => l - 1);
 
 The `.leave()` method is fine if you either know the historic index you want to backtrack to, or you simple want to increment the current one (undo/redo).
 
-But, there might be time's where you want to focus on a specific shard and calculate both crystals as though that shard is the most recent shard.
+But, there might be times where you want to focus on a specific shard and calculate both crystals as though that shard is the most recent shard.
 
 You can use `.focus()` to accomplish that.
 
@@ -336,7 +338,7 @@ crystalizer = crystalizer.with([
 crystalizer = crystalizer.focus((shard) => shard.id == 3);
 ```
 
-Note that unlike `.leave()`, the internal pointer is _NOT_ reset when you call `.with()` or `.without()`. Instead, the pointer is updated for each call of `.with()` or `without()' per the seek function.
+Note that unlike `.leave()`, the internal pointer is _NOT_ reset when you call `.with()` or `.without()`. Instead, the pointer is updated for each call of `.with()` or `.without()` per the seek function.
 
 You can also use `.focus()` for a chronological value, such as `T` timestamp.
 
@@ -344,7 +346,7 @@ You can also use `.focus()` for a chronological value, such as `T` timestamp.
 crystalizer = crystalizer.focus((shard) => shard.ts >= Date.now() - WEEK);
 ```
 
-However, this relies on the shards being sorted by that value. We'll get into sorting as well in the next section, but there's also builtin ways to handle timestamps in Crystalize.js (see #TODO).
+However, this relies on the shards being sorted by that value. We'll get into sorting as well in the next section, but there's also builtin ways to handle timestamps in Crystalize.js (see [Timestamp](#timestamp)).
 
 ## Init options
 
@@ -380,7 +382,7 @@ console.log(crystal);
 // { total: 22 }
 
 console.log(shards);
-// Note that { timestamp: 3, value: 4 } is missing
+// Note that { timestamp: 3, value: 3 } is missing
 //
 // [{ timestamp: 1, value: 2 },
 //  { timestamp: 1, value: 1 },
@@ -404,7 +406,7 @@ new Crystalizer<Crystal, Shard>({
 
 ### Map
 
-You might wish to automatically add or change certain keys to every shard. Id`s are a great example of this. You can do so by specifying the `map` option, which takes a simple map function:
+You might wish to automatically add or change certain keys to every shard. Id's are a great example of this. You can do so by specifying the `map` option, which takes a simple map function:
 
 ```typescript
 import { ulid } from 'ulid';
@@ -416,11 +418,11 @@ let crystalizer = new Crystalizer<Crystal, Shard>({
 });
 ```
 
-Now, all your shards will have a unique id from `ulid` if they didn't already have an id.
+Now, all your shards will have a unique id from `ulid` if they didn't already have one.
 
 ### Timestamp
 
-We have enough building blocks to ensure every shard has a timestamp, are ordered by those timestamps, and then revisit the `.focus()` example using them.
+We have enough building blocks to ensure every shard has a timestamp, and are ordered by those timestamps.
 
 ```typescript
 import { ulid } from 'ulid';
@@ -436,7 +438,7 @@ let crystalizer = new Crystalizer<Crystal, Shard>({
 });
 ```
 
-We can do this much more simply by specifying the `tsKey` option:
+But, we can do this much more simply by specifying the `tsKey` option:
 
 ```typescript
 import { ulid } from 'ulid';
