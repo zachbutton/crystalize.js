@@ -21,7 +21,7 @@
         "build": "tsup",
         "build:prod": "NODE_ENV=production tsup",
         "prepare": "husky install",
-        "docs:update": "node docs.js",
+        "docs:update": "node docs.js && typedoc --plugin typedoc-plugin-markdown --excludePrivate src/index.ts",
         "commit": "cz",
         "version:bump": "standard-version"
     },
@@ -38,7 +38,6 @@
     "description": "",
     "devDependencies": {
         "@types/jest": "^29.5.5",
-        "benchmark": "^2.1.4",
         "commitizen": "^4.3.0",
         "cz-conventional-changelog": "^3.3.0",
         "husky": "^8.0.3",

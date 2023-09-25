@@ -1,7 +1,7 @@
 import deepCopy from './utils/deepCopy';
 
-type Primitive = string | number | boolean | null | undefined;
-type PlainObject = {
+export type Primitive = string | number | boolean | null | undefined;
+export type PlainObject = {
     [key: string]: Primitive | Primitive[] | PlainObject;
 };
 
@@ -16,14 +16,14 @@ export type Keep<Shard> =
     | ['min', Keep<Shard>[]]
     | ['max', Keep<Shard>[]];
 
-type CrystalizerReducer<Crystal, Shard> = (
+export type CrystalizerReducer<Crystal, Shard> = (
     crystal: Readonly<Crystal>,
     shard: Readonly<Shard>,
 ) => Crystal;
 
-type SingleSort<Shard> = ['asc' | 'desc', string | ShardSeekFn<Shard>];
+export type SingleSort<Shard> = ['asc' | 'desc', string | ShardSeekFn<Shard>];
 
-type UserOpts<Crystal, Shard> = {
+export type UserOpts<Crystal, Shard> = {
     initial: Crystal;
     reduce: CrystalizerReducer<Crystal, Shard>;
     map?: (shard: Readonly<Shard>) => Shard;

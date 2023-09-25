@@ -27,6 +27,7 @@ Here’s how you can use it to empower your projects:
 <!-- toc -->
 
 -   [Installation](#installation)
+-   [API reference](#api-reference)
 -   [Samples](#samples)
 -   [What are 'Crystals' and 'Shards'? And why?](#what-are-crystals-and-shards-and-why)
 -   [Introduction](#introduction)
@@ -40,7 +41,6 @@ Here’s how you can use it to empower your projects:
     -   [Map](#map)
     -   [Timestamp](#timestamp)
     -   [Keep](#keep)
--   [API reference](#api-reference)
 
 <!-- tocstop -->
 
@@ -80,6 +80,10 @@ let crystalizer = new Crystalizer({
     }),
 });
 ```
+
+## API reference
+
+crystalize.js / [Exports](docs/modules.md)
 
 ## Samples
 
@@ -568,7 +572,3 @@ let crystalizer = new Crystalizer<Crystal, Shard>({
     keep: ['all'],
 });
 ```
-
-## API reference
-
-TODO
