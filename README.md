@@ -80,7 +80,8 @@ Sample apps, as built, will be placed here and linked to `./samples`.
 ## FAQ
 
 **Q**: **Isn't `crystalize` spelled wrong?
-**A\*\*: ![4as338](https://github.com/zachbutton/crystalize.js/assets/5890542/117d8c49-95aa-4ab8-9940-e23180bcaa3e)
+**A**: ![Screenshot from 2023-09-25 04-04-22](https://github.com/zachbutton/crystalize.js/assets/5890542/efe9007d-e0fa-4b1e-9d25-228657699af4)
+
 
 **Q**: Why are they called 'Crystals' and 'Shards' and not something more familiar?
 **A**: See [below](#what-are-crystals-and-shards-and-why)
