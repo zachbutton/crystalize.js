@@ -8,10 +8,6 @@
 
 -   [default](classes/default.md)
 
-### Interfaces
-
--   [Opts](interfaces/Opts.md)
-
 ### Type Aliases
 
 -   [CrystalizerReducer](modules.md#crystalizerreducer)
@@ -52,7 +48,7 @@
 
 #### Defined in
 
-[index.ts:19](https://github.com/zachbutton/crystalize.js/blob/2881530/src/index.ts#L19)
+[index.ts:19](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L19)
 
 ---
 
@@ -68,7 +64,7 @@
 
 #### Defined in
 
-[index.ts:10](https://github.com/zachbutton/crystalize.js/blob/2881530/src/index.ts#L10)
+[index.ts:10](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L10)
 
 ---
 
@@ -82,7 +78,7 @@
 
 #### Defined in
 
-[index.ts:4](https://github.com/zachbutton/crystalize.js/blob/2881530/src/index.ts#L4)
+[index.ts:4](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L4)
 
 ---
 
@@ -92,7 +88,7 @@
 
 #### Defined in
 
-[index.ts:3](https://github.com/zachbutton/crystalize.js/blob/2881530/src/index.ts#L3)
+[index.ts:3](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L3)
 
 ---
 
@@ -122,7 +118,7 @@
 
 #### Defined in
 
-[index.ts:8](https://github.com/zachbutton/crystalize.js/blob/2881530/src/index.ts#L8)
+[index.ts:8](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L8)
 
 ---
 
@@ -138,7 +134,7 @@
 
 #### Defined in
 
-[index.ts:24](https://github.com/zachbutton/crystalize.js/blob/2881530/src/index.ts#L24)
+[index.ts:24](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L24)
 
 ---
 
@@ -166,4 +162,4 @@
 
 #### Defined in
 
-[index.ts:26](https://github.com/zachbutton/crystalize.js/blob/2881530/src/index.ts#L26)
+[index.ts:26](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L26)

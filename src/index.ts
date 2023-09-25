@@ -39,7 +39,7 @@ type InternalOpts<Shard> = {
     __getTime?: () => number;
 };
 
-export interface Opts<Crystal, Shard>
+interface Opts<Crystal, Shard>
     extends UserOpts<Crystal, Shard>,
         InternalOpts<Shard> {}
 
