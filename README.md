@@ -50,35 +50,8 @@ Here’s how you can use it to empower your projects:
 npm i -D crystalize.js
 ```
 
-TypeScript:
-
 ```typescript
 import Crystalizer from 'crystalize.js';
-
-type Crystal = { total: number };
-type Shard = { id: number; value: number };
-
-let crystalizer = new Crystalizer<Crystal, Shard>({
-    initial: { total: 0 },
-    reduce: (crystal, shard) => ({
-        ...crystal,
-        total: crystal.total + shard.value,
-    }),
-});
-```
-
-JavaScript:
-
-```typescript
-import Crystalizer from 'crystalize.js';
-
-let crystalizer = new Crystalizer({
-    initial: { total: 0 },
-    reduce: (crystal, shard) => ({
-        ...crystal,
-        total: crystal.total + shard.value,
-    }),
-});
 ```
 
 ## API reference
