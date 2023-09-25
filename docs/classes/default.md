@@ -45,7 +45,7 @@
 
 #### Defined in
 
-[index.ts:63](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L63)
+[index.ts:63](https://github.com/zachbutton/crystalize.js/blob/6283187/src/index.ts#L63)
 
 ## Methods
 
@@ -65,7 +65,7 @@
 
 #### Defined in
 
-[index.ts:159](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L159)
+[index.ts:159](https://github.com/zachbutton/crystalize.js/blob/6283187/src/index.ts#L159)
 
 ---
 
@@ -85,7 +85,7 @@
 
 #### Defined in
 
-[index.ts:154](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L154)
+[index.ts:154](https://github.com/zachbutton/crystalize.js/blob/6283187/src/index.ts#L154)
 
 ---
 
@@ -105,7 +105,7 @@
 
 #### Defined in
 
-[index.ts:202](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L202)
+[index.ts:202](https://github.com/zachbutton/crystalize.js/blob/6283187/src/index.ts#L202)
 
 ---
 
@@ -125,7 +125,7 @@
 
 #### Defined in
 
-[index.ts:163](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L163)
+[index.ts:163](https://github.com/zachbutton/crystalize.js/blob/6283187/src/index.ts#L163)
 
 ---
 
@@ -145,7 +145,7 @@
 
 #### Defined in
 
-[index.ts:191](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L191)
+[index.ts:191](https://github.com/zachbutton/crystalize.js/blob/6283187/src/index.ts#L191)
 
 ---
 
@@ -188,4 +188,4 @@
 
 #### Defined in
 
-[index.ts:97](https://github.com/zachbutton/crystalize.js/blob/2938f5e/src/index.ts#L97)
+[index.ts:97](https://github.com/zachbutton/crystalize.js/blob/6283187/src/index.ts#L97)

@@ -39,6 +39,7 @@ Here's how to harness the transformative power of Crystalize.js for your project
 -   [Installation](#installation)
 -   [API reference](#api-reference)
 -   [Samples](#samples)
+-   [FAQ](#faq)
 -   [What are 'Crystals' and 'Shards'? And why?](#what-are-crystals-and-shards-and-why)
 -   [Introduction](#introduction)
     -   [.with() and .take()](#with-and-take)
@@ -75,6 +76,14 @@ Sample apps, as built, will be placed here and linked to `./samples`.
 -   **TODO** React TODO app with undo/redo
 -   **TODO** Time-based journal app
 -   **TODO** Thin backend with seamless offline experience
+
+## FAQ
+
+**Q**: **Isn't `crystalize` spelled wrong?
+**A\*\*: ![4as338](https://github.com/zachbutton/crystalize.js/assets/5890542/117d8c49-95aa-4ab8-9940-e23180bcaa3e)
+
+**Q**: Why are they called 'Crystals' and 'Shards' and not something more familiar?
+**A**: See [below](#what-are-crystals-and-shards-and-why)
 
 ## What are 'Crystals' and 'Shards'? And why?
 
