@@ -11,9 +11,11 @@
 
 Welcome to Crystalize.js, where state management gets a transformative twist. This isn't just another reducer; it's a game-changer that lets you retain, navigate, and selectively aggregate your data.
 
-Here, 'crystals' are your final state, 'shards' are the elements you feed in, and—here's the kicker—the 'base crystal' is your initial point, accumulating only the shards you choose to leave behind.
+Here, 'crystals' are your final state, 'shards' are the elements you feed in, and—here's the kicker—the 'base crystal' is your initial point, accumulating the shards you don't need immediate access to, while also maintaining your prior aggregation (or state).
 
-Why does it matter? With `.with()`, you feed in 'shards'. With `.take()`, you access your 'crystal', controlling the level of aggregation. The 'base crystal' then, becomes a snapshot of the state without the shards you recently took—offering you unparalleled control over your data's time-traveling journey.
+[What are 'Crystals' and 'Shards'? And why?](#what-are-crystals-and-shards-and-why)
+
+Basic operation is easy and intuitive, using `.with()` to add shards to your crystalizer, and `.take(N)` to take your final crystal (state), N count of shards, and your 'base crystal'.
 
 Feeling selective? Use `.without()` to filter out shards. Want to navigate through your state's history? Meet `.leave()` and .`focus()`, your time-traveling tools.
 
