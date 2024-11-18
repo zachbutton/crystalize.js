@@ -4,6 +4,7 @@ on: workflow_dispatch
 jobs:
     release:
         runs-on: ubuntu-latest
+        using: 'node20'
         steps:
             - name: Check out repository code
               uses: actions/checkout@v3
