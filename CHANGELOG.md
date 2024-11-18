@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/zachbutton/crystalize.js/compare/v1.0.0...v1.1.0) (2024-11-18)
+
+### Features
+
+-   upgrade map/tsKey shard typings ([1b44978](https://github.com/zachbutton/crystalize.js/commit/1b449783fa8985d4e2941ea1ddafe7942a1f0faa))
+
 ## [1.0.0](https://github.com/zachbutton/crystalize.js/compare/v0.1.15...v1.0.0) (2023-09-25)
 
 ### ⚠ BREAKING CHANGES
