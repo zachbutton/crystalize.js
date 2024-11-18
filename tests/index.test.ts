@@ -1,6 +1,6 @@
 import Crystalizer, { ShardSeekFn, UserOpts, Keep } from '../src/index';
 
-interface Opts<Crystal, Shard> extends UserOpts<Crystal, Shard> {
+interface Opts<Crystal, Shard, ExtShard, TsKey extends string> extends UserOpts<Crystal, Shard, ExtShard, TsKey> {
     [any: string]: any;
 }
 
@@ -23,7 +23,7 @@ const makeIncer = () => {
 };
 
 const withRecordedCrst = (
-    opts: Partial<Opts<Crystal, Shard>>,
+    opts: Partial<Opts<Crystal, Shard, Shard, "ts">>,
     onCall: (
         crystalizer: Crystalizer<Crystal, Shard>,
         nth: number,
@@ -140,7 +140,7 @@ const simulateCall = (state, opts, fn, args) => {
 
 const getOptsKeep = (
     state: any,
-    opts: Opts<Crystal, Shard>,
+    opts: Opts<Crystal, Shard, Shard, "ts">,
     _keep?: Keep<Shard>,
 ) => {
     const shards = state.shards as Shard[];
@@ -215,7 +215,7 @@ const generateResult = (state, opts, takeCount?: number) => {
 
 const testScenario = (
     name: string,
-    _opts: Partial<Opts<Crystal, Shard>>,
+    _opts: Partial<Opts<Crystal, Shard, Shard, "ts">>,
     fn: (c: Crystalizer<Crystal, Shard>) => void,
 ) => {
     describe(name, () => {
@@ -248,7 +248,7 @@ const testScenario = (
 describe('Crystalizer', () => {
     const testChainMethods = (
         name: string,
-        opts: Partial<Opts<Crystal, Shard>>,
+        opts: Partial<Opts<Crystal, Shard, Shard, "ts">>,
         extraScenario?: (c: Crystalizer<Crystal, Shard>) => void,
     ) => {
         describe('in opts[' + name + ']', () => {
@@ -355,7 +355,7 @@ describe('Crystalizer', () => {
     testChainMethods('defaults', {});
 
     testChainMethods('map', {
-        map: (shard) => ({ ...shard, newKey: 'k_' + shard.id }),
+        map: (shard) => ({ ...shard, newKey: 'k_' + shard.id, ts: 0 }),
     });
 
     testChainMethods(

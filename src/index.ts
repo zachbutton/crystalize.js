@@ -16,54 +16,60 @@ export type Keep<Shard> =
     | ['min', Keep<Shard>[]]
     | ['max', Keep<Shard>[]];
 
-export type CrystalizerReducer<Crystal, Shard> = (
+export type CrystalizerReducer<Crystal, ExtShard, TsKey extends string> = (
     crystal: Readonly<Crystal>,
-    shard: Readonly<Shard>,
+    shard: Readonly<FullShard<ExtShard, TsKey>>,
 ) => Crystal;
 
 export type SingleSort<Shard> = ['asc' | 'desc', string | ShardSeekFn<Shard>];
 
-export type UserOpts<Crystal, Shard> = {
+export type FullShard<ExtShard, TsKey extends string> = 
+	ExtShard & Record<TsKey, number>;
+
+export type UserOpts<Crystal, Shard, ExtShard, TsKey extends string> = {
     initial: Crystal;
-    reduce: CrystalizerReducer<Crystal, Shard>;
-    map?: (shard: Readonly<Shard>) => Shard;
-    keep?: Keep<Shard>;
+    reduce: CrystalizerReducer<Crystal, ExtShard, TsKey>;
+    map?: (shard: Readonly<Shard>) => FullShard<ExtShard, TsKey>;
+    keep?: Keep<FullShard<ExtShard, TsKey>>;
     sort?: SingleSort<Shard> | SingleSort<Shard>[];
     tsKey?: string;
 };
 
-type InternalOpts<Shard> = {
-    __newShards?: Shard[];
+
+type InternalOpts<ExtShard, TsKey extends string> = {
+    __newShards?: FullShard<ExtShard, TsKey>[];
     __ptr?: number;
-    __focus?: ShardSeekFn<Shard>;
+    __focus?: ShardSeekFn<FullShard<ExtShard, TsKey>>;
     __getTime?: () => number;
 };
 
-interface Opts<Crystal, Shard>
-    extends UserOpts<Crystal, Shard>,
-        InternalOpts<Shard> {}
+interface Opts<Crystal, Shard, ExtShard, TsKey extends string>
+    extends UserOpts<Crystal, Shard, ExtShard, TsKey>,
+        InternalOpts<ExtShard, TsKey> {}
 
 export default class Crystalizer<
     Crystal extends PlainObject = PlainObject,
     Shard extends PlainObject = Crystal,
+    ExtShard extends PlainObject = Shard,
+	TsKey extends string = 'ts',
 > {
-    private opts: Readonly<Opts<Crystal, Shard>>;
+    private opts: Readonly<Opts<Crystal, Shard, ExtShard, TsKey>>;
 
     private state?: {
         crystal: Crystal;
-        shards: Shard[];
+        shards: FullShard<ExtShard, TsKey>[];
     };
 
     private takeCache: {
-        [count: number]: { crystal: Crystal; shards: Shard[] };
+        [count: number]: { crystal: Crystal; shards: FullShard<ExtShard, TsKey>[] };
     } = {};
 
-    private sorts: SingleSort<Shard>[];
+    private sorts: SingleSort<FullShard<ExtShard, TsKey>>[];
 
-    constructor(_opts: UserOpts<Crystal, Shard> | Opts<Crystal, Shard>) {
-        let opts: Opts<Crystal, Shard> = {
+    constructor(_opts: UserOpts<Crystal, Shard, ExtShard, TsKey> | Opts<Crystal, Shard, ExtShard, TsKey>) {
+        let opts: Opts<Crystal, Shard, ExtShard, TsKey> = {
             keep: ['all'],
-            map: (v) => v,
+            map: (v) => v as unknown as FullShard<ExtShard, TsKey>,
             __newShards: [],
             __ptr: 0,
             __getTime: () => Date.now(),
@@ -80,7 +86,7 @@ export default class Crystalizer<
 
             this.sorts = (
                 isMultisort ? opts.sort : [opts.sort]
-            ) as SingleSort<Shard>[];
+            ) as SingleSort<FullShard<ExtShard, TsKey>>[];
         } else {
             this.sorts = [];
         }
@@ -97,9 +103,11 @@ export default class Crystalizer<
     public static Builder<
         Crystal extends PlainObject = PlainObject,
         Shard extends PlainObject = Crystal,
-    >(opts: UserOpts<Crystal, Shard>) {
-        function make(custom: Partial<UserOpts<Crystal, Shard>> = {}) {
-            return new Crystalizer<Crystal, Shard>({ ...opts, ...custom });
+		ExtShard extends PlainObject = Shard,
+		TsKey extends string = 'ts',
+    >(opts: UserOpts<Crystal, Shard, ExtShard, TsKey>) {
+        function make(custom: Partial<UserOpts<Crystal, Shard, ExtShard, TsKey>> = {}) {
+            return new Crystalizer<Crystal, Shard, ExtShard, TsKey>({ ...opts, ...custom });
         }
 
         make.toJSON = () => {};
@@ -156,22 +164,24 @@ export default class Crystalizer<
         return this.buildNew({ __ptr: count, __focus: null });
     }
 
-    focus(seek: ShardSeekFn<Shard>) {
+    focus(seek: ShardSeekFn<FullShard<ExtShard, TsKey>>) {
         return this.buildNew({ __focus: seek, __ptr: 0 });
     }
 
     with(shards: Shard | Shard[]) {
-        shards = deepCopy(shards instanceof Array ? shards : [shards]);
+        const _shards = 
+			deepCopy(shards instanceof Array ? shards : [shards]) as 
+			unknown as FullShard<ExtShard, TsKey>[];
 
         if (this.opts.map || this.opts.tsKey) {
-            for (let i = 0; i < shards.length; i++) {
+            for (let i = 0; i < _shards.length; i++) {
                 if (this.opts.map) {
-                    shards[i] = this.opts.map(shards[i]);
+                    _shards[i] = this.opts.map(shards[i]);
                 }
                 if (this.opts.tsKey) {
-                    shards[i] = {
+                    _shards[i] = {
                         [this.opts.tsKey]: this.opts.__getTime(),
-                        ...shards[i],
+                        ..._shards[i],
                     };
                 }
             }
@@ -179,7 +189,7 @@ export default class Crystalizer<
 
         const limit = this.opts.__ptr == 0 ? Infinity : -this.opts.__ptr;
 
-        const newShards = this.state.shards.slice(0, limit).concat(shards);
+        const newShards = this.state.shards.slice(0, limit).concat(_shards);
         this.sortMutate(newShards);
 
         return this.buildNew({
@@ -188,7 +198,7 @@ export default class Crystalizer<
         });
     }
 
-    without(seek: ShardSeekFn<Shard>) {
+    without(seek: ShardSeekFn<FullShard<ExtShard, TsKey>>) {
         const limit = this.opts.__ptr == 0 ? Infinity : -this.opts.__ptr;
 
         return this.buildNew({
@@ -212,17 +222,17 @@ export default class Crystalizer<
         return [final, shards, old];
     }
 
-    private buildNew(opts: Partial<Opts<Crystal, Shard>>) {
-        const newOpts = {
+    private buildNew(opts: Partial<Opts<Crystal, Shard, ExtShard, TsKey>>) {
+        const newOpts: Opts<Crystal, Shard, ExtShard, TsKey> = {
             ...this.opts,
             initial: this.state.crystal,
             __newShards: this.state.shards,
             ...opts,
         };
-        return new Crystalizer<Crystal, Shard>(newOpts);
+        return new Crystalizer<Crystal, Shard, ExtShard, TsKey>(newOpts);
     }
 
-    private getPtrIndex(shards: Shard[]) {
+    private getPtrIndex(shards: FullShard<ExtShard, TsKey>[]) {
         if (this.opts.__focus) {
             const index = shards.findIndex(this.opts.__focus);
             return index == -1 ? 0 : shards.length - index - 1;
@@ -231,16 +241,7 @@ export default class Crystalizer<
         return this.opts.__ptr;
     }
 
-    private getShardsLimitedByPtr(shards: Shard[]) {
-        const ptr = this.getPtrIndex(shards);
-        if (ptr == 0) {
-            return shards;
-        }
-
-        return shards.slice(0, -ptr);
-    }
-
-    private reduceInto(crystal: Crystal, shards: Shard[]): Crystal {
+    private reduceInto(crystal: Crystal, shards: FullShard<ExtShard, TsKey>[]): Crystal {
         return shards.reduce(
             (crystal, shard) => this.opts.reduce(crystal, shard),
             crystal,
@@ -249,7 +250,7 @@ export default class Crystalizer<
 
     private getKeepCount(
         wanted: number,
-        maxKeepRules: Keep<Shard> = this.opts.keep,
+        maxKeepRules: Keep<FullShard<ExtShard, TsKey>> = this.opts.keep,
     ): number {
         if (wanted == 0) {
             return 0;
@@ -307,14 +308,14 @@ export default class Crystalizer<
         return Math.min(wanted, max);
     }
 
-    private sortMutate(shards: Shard[]): void {
+    private sortMutate(shards: FullShard<ExtShard, TsKey>[]): void {
         if (!this.sorts.length) {
             return;
         }
 
         const getSortVal = (
-            shard: Shard,
-            key: string | ((s: Shard) => unknown),
+            shard: FullShard<ExtShard, TsKey>,
+            key: string | ((s: FullShard<ExtShard, TsKey>) => unknown),
         ) => {
             if (key instanceof Function) {
                 return key(shard);
@@ -323,7 +324,7 @@ export default class Crystalizer<
             return shard[key];
         };
 
-        shards.sort((a: Shard, b: Shard) => {
+        shards.sort((a: FullShard<ExtShard, TsKey>, b: FullShard<ExtShard, TsKey>) => {
             for (let i = 0; i < this.sorts.length; i++) {
                 const [dir, key] = this.sorts[i];
                 const l = dir == 'asc' ? a : b;
