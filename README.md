@@ -77,17 +77,6 @@ Sample apps, as built, will be placed here and linked to `./samples`.
 -   **TODO** Time-based journal app
 -   **TODO** Thin backend with seamless offline experience
 
-## FAQ
-
-**Q**: Isn't `crystalize` spelled wrong?
-
-![Screenshot from 2023-09-25 04-04-22](https://github.com/zachbutton/crystalize.js/assets/5890542/efe9007d-e0fa-4b1e-9d25-228657699af4)
-
-
-**Q**: Why are they called 'Crystals' and 'Shards' and not something more familiar?
-
-See [below](#what-are-crystals-and-shards-and-why).
-
 ## What are 'Crystals' and 'Shards'? And why?
 
 A crystalizer is, in essence, a reducer. With default settings, you get something that closely resembles state management from things like Redux. Which, of course, is just a normal reduce function used in a particular way. So, you might wonder what the names are for, and why not just use the colloquial names 'actions' and 'reducers'?
